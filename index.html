@@ -1,856 +1,1096 @@
-function MainComponent() {
-  return (
-    <div>
-      <div
-        dangerouslySetInnerHTML={{
-          __html: `
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TridentAudio - HTML Audio Transcription Tool</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <style>
-        .animate-pulse {
-            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-        }
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: .5; }
-        }
-        .animate-spin {
-            animation: spin 1s linear infinite;
-        }
-        @keyframes spin {
-            from { transform: rotate(0deg); }
-            to { transform: rotate(360deg); }
-        }
-        .group:hover .group-hover\\:opacity-100 {
-            opacity: 1;
-        }
-        .group:hover .group-hover\\:visible {
-            visibility: visible;
-        }
-    </style>
-</head>
-<body class="min-h-screen bg-gray-50">
-    <!-- Header -->
-    <div class="bg-white shadow-sm border-b">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex justify-between items-center py-4">
-                <div class="flex items-center space-x-3">
-                    <div class="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-                        <i class="fas fa-microphone text-white text-sm"></i>
-                    </div>
-                    <h1 class="text-2xl font-bold text-gray-900">TridentAudio HTML</h1>
-                </div>
-                
-                <div class="flex items-center space-x-4">
-                    <div class="flex bg-gray-100 rounded-lg p-1">
-                        <button id="recordTab" class="px-4 py-2 rounded-md text-sm font-medium transition-colors bg-white text-blue-600 shadow-sm">
-                            Record
-                        </button>
-                        <button id="filesTab" class="px-4 py-2 rounded-md text-sm font-medium transition-colors text-gray-600 hover:text-gray-900">
-                            Files (<span id="fileCount">0</span>)
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
 
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <!-- Left Panel - Recording/Upload -->
-            <div class="lg:col-span-1">
-                <div class="bg-white rounded-xl shadow-sm border p-6">
-                    <!-- Record Tab Content -->
-                    <div id="recordContent" class="space-y-6">
-                        <div>
-                            <h2 class="text-lg font-semibold text-gray-900 mb-4">Audio Recording</h2>
-                            
-                            <!-- Audio Source Selection -->
-                            <div class="mb-4">
-                                <label class="block text-sm font-medium text-gray-700 mb-2">Audio Source</label>
-                                <select id="audioSource" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                                    <option value="microphone">Microphone (Input)</option>
-                                    <option value="system">System Audio (Output)</option>
-                                    <option value="both">Both (Input + Output)</option>
-                                </select>
-                                <p id="audioSourceDesc" class="text-xs text-gray-500 mt-1">Records from your microphone</p>
-                            </div>
-
-                            <!-- Recording Controls -->
-                            <div class="flex flex-col items-center space-y-4">
-                                <div id="recordButton" class="w-24 h-24 rounded-full flex items-center justify-center transition-all duration-300 bg-blue-500 hover:bg-blue-600 cursor-pointer">
-                                    <i id="recordIcon" class="fas fa-microphone text-white text-2xl"></i>
-                                </div>
-                                
-                                <div class="text-center">
-                                    <p id="recordStatus" class="text-sm font-medium text-gray-900">Click to Start Recording</p>
-                                    <p id="recordSourceStatus" class="text-xs text-gray-500 mt-1">Using microphone input</p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Live Transcription Section -->
-                        <div class="border-t pt-6">
-                            <div class="flex items-center justify-between mb-3">
-                                <h3 class="text-md font-medium text-gray-900">Live Transcription</h3>
-                                <button id="liveTranscribeBtn" class="px-3 py-1 rounded-lg text-sm font-medium transition-colors bg-green-100 text-green-700 hover:bg-green-200">
-                                    <i class="fas fa-play mr-1"></i>
-                                    Start Live
-                                </button>
-                            </div>
-                            
-                            <div class="bg-gray-50 rounded-lg p-4 min-h-[120px] max-h-[200px] overflow-y-auto">
-                                <div id="liveStatus" class="hidden flex items-center space-x-2 mb-2">
-                                    <div class="w-1 h-2 bg-red-500 rounded-full animate-pulse"></div>
-                                    <span class="text-xs text-gray-600">Live transcribing...</span>
-                                    <button id="clearLiveBtn" class="ml-auto text-xs text-gray-500 hover:text-gray-700">Clear</button>
-                                </div>
-                                
-                                <div id="liveTranscriptionText" class="text-sm text-gray-800">
-                                    <span class="text-gray-500 italic">Click "Start Live" to begin real-time transcription</span>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- File Upload -->
-                        <div class="border-t pt-6">
-                            <h3 class="text-md font-medium text-gray-900 mb-3">Upload Audio/Video</h3>
-                            <div class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-blue-400 transition-colors">
-                                <input type="file" accept="audio/*,video/*" id="fileUpload" class="hidden">
-                                <label for="fileUpload" class="cursor-pointer flex flex-col items-center space-y-2">
-                                    <i class="fas fa-cloud-upload-alt text-3xl text-gray-400"></i>
-                                    <span class="text-sm text-gray-600">Click to upload audio or video file</span>
-                                    <span class="text-xs text-gray-400">Supports MP3, WAV, MP4, and more</span>
-                                </label>
-                            </div>
-                        </div>
-
-                        <!-- Status -->
-                        <div id="processingStatus" class="border-t pt-6 hidden">
-                            <div class="flex items-center space-x-3">
-                                <div class="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
-                                <span id="processingText" class="text-sm text-gray-600">Processing...</span>
-                            </div>
-                            <div id="currentTranscription" class="mt-3 p-3 bg-blue-50 rounded-lg hidden">
-                                <p class="text-sm text-gray-700"></p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Files Tab Content -->
-                    <div id="filesContent" class="space-y-4 hidden">
-                        <div class="flex items-center justify-between">
-                            <h2 class="text-lg font-semibold text-gray-900">File Manager</h2>
-                            <span class="text-sm text-gray-500"><span id="fileCountDisplay">0</span> files</span>
-                        </div>
-                        
-                        <!-- Search -->
-                        <div class="relative">
-                            <input type="text" id="searchInput" placeholder="Search transcriptions..." class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                            <i class="fas fa-search absolute left-3 top-3 text-gray-400"></i>
-                        </div>
-
-                        <!-- File List -->
-                        <div id="fileList" class="space-y-2 max-h-96 overflow-y-auto">
-                            <div id="emptyState" class="text-center py-8 text-gray-500">
-                                <i class="fas fa-file-audio text-3xl mb-2"></i>
-                                <p class="text-sm">No transcriptions yet</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Right Panel - Transcription View -->
-            <div class="lg:col-span-2">
-                <div class="bg-white rounded-xl shadow-sm border">
-                    <div id="transcriptionView" class="p-12 text-center">
-                        <div class="text-gray-400 mb-4">
-                            <i class="fas fa-file-audio text-6xl"></i>
-                        </div>
-                        <h3 class="text-lg font-medium text-gray-900 mb-2">No transcription selected</h3>
-                        <p class="text-gray-500">Start recording or upload a file to begin transcription</p>
-                    </div>
-                    
-                    <div id="transcriptionContent" class="p-6 hidden">
-                        <!-- Header -->
-                        <div class="flex items-center justify-between mb-6">
-                            <div>
-                                <h2 id="transcriptionTitle" class="text-xl font-semibold text-gray-900"></h2>
-                                <p id="transcriptionDate" class="text-sm text-gray-500"></p>
-                            </div>
-                            
-                            <div class="flex items-center space-x-2">
-                                <!-- Summarize Button -->
-                                <button id="summarizeBtn" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 text-sm">
-                                    <i class="fas fa-magic mr-2"></i>
-                                    Summarize
-                                </button>
-                                
-                                <!-- Export Dropdown -->
-                                <div class="relative group">
-                                    <button class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm">
-                                        <i class="fas fa-download mr-2"></i>
-                                        Export
-                                    </button>
-                                    <div class="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-10">
-                                        <button id="exportTxt" class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-t-lg">
-                                            <i class="fas fa-file-alt mr-2"></i>
-                                            Export as TXT
-                                        </button>
-                                        <button id="exportJson" class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-b-lg">
-                                            <i class="fas fa-file-code mr-2"></i>
-                                            Export as JSON
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Summary -->
-                        <div id="summarySection" class="mb-6 p-4 bg-green-50 rounded-lg border border-green-200 hidden">
-                            <h3 class="text-md font-semibold text-green-900 mb-2">
-                                <i class="fas fa-magic mr-2"></i>
-                                AI Summary
-                            </h3>
-                            <div id="summaryText" class="text-sm text-green-800 whitespace-pre-wrap"></div>
-                        </div>
-
-                        <!-- Transcription -->
-                        <div class="space-y-4">
-                            <h3 class="text-md font-semibold text-gray-900">
-                                <i class="fas fa-file-alt mr-2"></i>
-                                Transcription
-                            </h3>
-                            
-                            <div class="bg-gray-50 rounded-lg p-4 max-h-96 overflow-y-auto">
-                                <div id="transcriptionText" class="text-sm text-gray-800 whitespace-pre-wrap leading-relaxed"></div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <script>
-        // Global state
-        let isRecording = false;
-        let mediaRecorder = null;
-        let audioChunks = [];
-        let transcriptions = [];
-        let isTranscribing = false;
-        let selectedTranscription = null;
-        let isSummarizing = false;
-        let audioSource = 'microphone';
-        let speakerNames = {};
-        let editingSpeaker = null;
-        let activeTab = 'record';
-        let isLiveTranscribing = false;
-        let liveTranscription = '';
-        let liveMediaRecorder = null;
-        let liveAudioChunks = [];
-
-        // DOM elements
-        const recordTab = document.getElementById('recordTab');
-        const filesTab = document.getElementById('filesTab');
-        const recordContent = document.getElementById('recordContent');
-        const filesContent = document.getElementById('filesContent');
-        const audioSourceSelect = document.getElementById('audioSource');
-        const audioSourceDesc = document.getElementById('audioSourceDesc');
-        const recordButton = document.getElementById('recordButton');
-        const recordIcon = document.getElementById('recordIcon');
-        const recordStatus = document.getElementById('recordStatus');
-        const recordSourceStatus = document.getElementById('recordSourceStatus');
-        const liveTranscribeBtn = document.getElementById('liveTranscribeBtn');
-        const liveStatus = document.getElementById('liveStatus');
-        const liveTranscriptionText = document.getElementById('liveTranscriptionText');
-        const clearLiveBtn = document.getElementById('clearLiveBtn');
-        const fileUpload = document.getElementById('fileUpload');
-        const processingStatus = document.getElementById('processingStatus');
-        const processingText = document.getElementById('processingText');
-        const currentTranscription = document.getElementById('currentTranscription');
-        const fileCount = document.getElementById('fileCount');
-        const fileCountDisplay = document.getElementById('fileCountDisplay');
-        const searchInput = document.getElementById('searchInput');
-        const fileList = document.getElementById('fileList');
-        const emptyState = document.getElementById('emptyState');
-        const transcriptionView = document.getElementById('transcriptionView');
-        const transcriptionContent = document.getElementById('transcriptionContent');
-        const transcriptionTitle = document.getElementById('transcriptionTitle');
-        const transcriptionDate = document.getElementById('transcriptionDate');
-        const summarizeBtn = document.getElementById('summarizeBtn');
-        const exportTxt = document.getElementById('exportTxt');
-        const exportJson = document.getElementById('exportJson');
-        const summarySection = document.getElementById('summarySection');
-        const summaryText = document.getElementById('summaryText');
-        const transcriptionText = document.getElementById('transcriptionText');
-
-        // Event listeners
-        recordTab.addEventListener('click', () => setActiveTab('record'));
-        filesTab.addEventListener('click', () => setActiveTab('files'));
-        audioSourceSelect.addEventListener('change', updateAudioSource);
-        recordButton.addEventListener('click', toggleRecording);
-        liveTranscribeBtn.addEventListener('click', toggleLiveTranscription);
-        clearLiveBtn.addEventListener('click', clearLiveTranscription);
-        fileUpload.addEventListener('change', handleFileUpload);
-        searchInput.addEventListener('input', filterTranscriptions);
-        summarizeBtn.addEventListener('click', summarizeCurrentTranscription);
-        exportTxt.addEventListener('click', () => exportTranscription('txt'));
-        exportJson.addEventListener('click', () => exportTranscription('json'));
-
-        // Functions
-        function setActiveTab(tab) {
-            activeTab = tab;
-            if (tab === 'record') {
-                recordTab.className = 'px-4 py-2 rounded-md text-sm font-medium transition-colors bg-white text-blue-600 shadow-sm';
-                filesTab.className = 'px-4 py-2 rounded-md text-sm font-medium transition-colors text-gray-600 hover:text-gray-900';
-                recordContent.classList.remove('hidden');
-                filesContent.classList.add('hidden');
-            } else {
-                recordTab.className = 'px-4 py-2 rounded-md text-sm font-medium transition-colors text-gray-600 hover:text-gray-900';
-                filesTab.className = 'px-4 py-2 rounded-md text-sm font-medium transition-colors bg-white text-blue-600 shadow-sm';
-                recordContent.classList.add('hidden');
-                filesContent.classList.remove('hidden');
-            }
-        }
-
-        function updateAudioSource() {
-            audioSource = audioSourceSelect.value;
-            const descriptions = {
-                'microphone': 'Records from your microphone',
-                'system': 'Records system audio (what you hear)',
-                'both': 'Records both microphone and system audio'
-            };
-            const statusTexts = {
-                'microphone': 'Using microphone input',
-                'system': 'Using system audio output',
-                'both': 'Using both input and output'
-            };
-            audioSourceDesc.textContent = descriptions[audioSource];
-            recordSourceStatus.textContent = statusTexts[audioSource];
-        }
-
-        async function getAudioConstraints(source) {
-            try {
-                switch (source) {
-                    case 'microphone':
-                        return { audio: { echoCancellation: true, noiseSuppression: true } };
-                    
-                    case 'system':
-                        if (navigator.mediaDevices.getDisplayMedia) {
-                            return { audio: true, video: false };
-                        } else {
-                            throw new Error('System audio capture not supported in this browser');
-                        }
-                    
-                    case 'both':
-                        const micStream = await navigator.mediaDevices.getUserMedia({
-                            audio: { echoCancellation: true, noiseSuppression: true }
-                        });
-                        
-                        let systemStream;
-                        try {
-                            systemStream = await navigator.mediaDevices.getDisplayMedia({
-                                audio: true,
-                                video: false
-                            });
-                        } catch (error) {
-                            console.warn('Could not capture system audio, using microphone only');
-                            return micStream;
-                        }
-                        
-                        const audioContext = new AudioContext();
-                        const micSource = audioContext.createMediaStreamSource(micStream);
-                        const systemSource = audioContext.createMediaStreamSource(systemStream);
-                        const destination = audioContext.createMediaStreamDestination();
-                        
-                        micSource.connect(destination);
-                        systemSource.connect(destination);
-                        
-                        return destination.stream;
-                    
-                    default:
-                        return { audio: { echoCancellation: true, noiseSuppression: true } };
-                }
-            } catch (error) {
-                console.error('Error getting audio constraints:', error);
-                throw error;
-            }
-        }
-
-        async function toggleRecording() {
-            if (isRecording) {
-                stopRecording();
-            } else {
-                await startRecording();
-            }
-        }
-
-        async function startRecording() {
-            try {
-                let stream;
-                
-                if (audioSource === 'system') {
-                    stream = await navigator.mediaDevices.getDisplayMedia({
-                        audio: true,
-                        video: false
-                    });
-                } else if (audioSource === 'both') {
-                    stream = await getAudioConstraints('both');
-                } else {
-                    stream = await navigator.mediaDevices.getUserMedia({
-                        audio: { echoCancellation: true, noiseSuppression: true }
-                    });
-                }
-                
-                const recorder = new MediaRecorder(stream);
-                
-                recorder.ondataavailable = (event) => {
-                    if (event.data.size > 0) {
-                        audioChunks.push(event.data);
-                    }
-                };
-
-                recorder.onstop = () => {
-                    stream.getTracks().forEach(track => track.stop());
-                };
-
-                mediaRecorder = recorder;
-                recorder.start(1000);
-                isRecording = true;
-                
-                recordButton.className = 'w-24 h-24 rounded-full flex items-center justify-center transition-all duration-300 bg-red-500 animate-pulse cursor-pointer';
-                recordIcon.className = 'fas fa-stop text-white text-2xl';
-                recordStatus.textContent = 'Recording...';
-                audioSourceSelect.disabled = true;
-                liveTranscribeBtn.disabled = true;
-            } catch (error) {
-                console.error('Error starting recording:', error);
-                let errorMessage = 'Could not start recording. ';
-                
-                if (audioSource === 'system') {
-                    errorMessage += 'System audio capture may not be supported or permission was denied.';
-                } else if (audioSource === 'both') {
-                    errorMessage += 'Mixed audio capture failed. Please check permissions.';
-                } else {
-                    errorMessage += 'Please check microphone permissions.';
-                }
-                
-                alert(errorMessage);
-            }
-        }
-
-        function stopRecording() {
-            if (mediaRecorder) {
-                mediaRecorder.stop();
-                isRecording = false;
-                
-                recordButton.className = 'w-24 h-24 rounded-full flex items-center justify-center transition-all duration-300 bg-blue-500 hover:bg-blue-600 cursor-pointer';
-                recordIcon.className = 'fas fa-microphone text-white text-2xl';
-                recordStatus.textContent = 'Click to Start Recording';
-                audioSourceSelect.disabled = false;
-                liveTranscribeBtn.disabled = false;
-                
-                processRecording();
-            }
-        }
-
-        async function toggleLiveTranscription() {
-            if (isLiveTranscribing) {
-                stopLiveTranscription();
-            } else {
-                await startLiveTranscription();
-            }
-        }
-
-        async function startLiveTranscription() {
-            try {
-                let stream;
-                
-                if (audioSource === 'system') {
-                    stream = await navigator.mediaDevices.getDisplayMedia({
-                        audio: true,
-                        video: false
-                    });
-                } else if (audioSource === 'both') {
-                    stream = await getAudioConstraints('both');
-                } else {
-                    stream = await navigator.mediaDevices.getUserMedia({
-                        audio: { echoCancellation: true, noiseSuppression: true }
-                    });
-                }
-                
-                const recorder = new MediaRecorder(stream);
-                
-                recorder.ondataavailable = async (event) => {
-                    if (event.data.size > 0) {
-                        liveAudioChunks.push(event.data);
-                        
-                        const audioBlob = new Blob([event.data], { type: 'audio/wav' });
-                        await processLiveAudioChunk(audioBlob);
-                    }
-                };
-
-                recorder.onstop = () => {
-                    stream.getTracks().forEach(track => track.stop());
-                };
-
-                liveMediaRecorder = recorder;
-                recorder.start(2000);
-                isLiveTranscribing = true;
-                liveTranscription = '';
-                
-                liveTranscribeBtn.innerHTML = '<i class="fas fa-stop mr-1"></i>Stop Live';
-                liveTranscribeBtn.className = 'px-3 py-1 rounded-lg text-sm font-medium transition-colors bg-red-100 text-red-700 hover:bg-red-200';
-                liveStatus.classList.remove('hidden');
-                liveTranscriptionText.innerHTML = '<span class="text-gray-500 italic">Listening for speech...</span>';
-                recordButton.style.pointerEvents = 'none';
-                recordButton.style.opacity = '0.5';
-                audioSourceSelect.disabled = true;
-            } catch (error) {
-                console.error('Error starting live transcription:', error);
-                alert('Could not start live transcription. Please check permissions.');
-            }
-        }
-
-        function stopLiveTranscription() {
-            if (liveMediaRecorder) {
-                liveMediaRecorder.stop();
-                isLiveTranscribing = false;
-                liveAudioChunks = [];
-                
-                liveTranscribeBtn.innerHTML = '<i class="fas fa-play mr-1"></i>Start Live';
-                liveTranscribeBtn.className = 'px-3 py-1 rounded-lg text-sm font-medium transition-colors bg-green-100 text-green-700 hover:bg-green-200';
-                liveStatus.classList.add('hidden');
-                liveTranscriptionText.innerHTML = '<span class="text-gray-500 italic">Click "Start Live" to begin real-time transcription</span>';
-                recordButton.style.pointerEvents = 'auto';
-                recordButton.style.opacity = '1';
-                audioSourceSelect.disabled = false;
-            }
-        }
-
-        async function processLiveAudioChunk(audioBlob) {
-            try {
-                const reader = new FileReader();
-                reader.onload = async () => {
-                    const base64Audio = reader.result;
-                    
-                    const response = await fetch('/api/transcribe', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            audioData: base64Audio,
-                            fileName: 'live_chunk',
-                            includeTimestamps: false,
-                            includeSpeakers: false,
-                            isLiveChunk: true
-                        })
-                    });
-
-                    if (response.ok) {
-                        const result = await response.json();
-                        if (result.transcription && result.transcription.trim()) {
-                            liveTranscription += ' ' + result.transcription.trim();
-                            if (liveTranscription.length > 500) {
-                                liveTranscription = '...' + liveTranscription.slice(-500);
-                            }
-                            liveTranscriptionText.textContent = liveTranscription;
-                        }
-                    }
-                };
-                
-                reader.readAsDataURL(audioBlob);
-            } catch (error) {
-                console.error('Live transcription error:', error);
-            }
-        }
-
-        function clearLiveTranscription() {
-            liveTranscription = '';
-            liveTranscriptionText.innerHTML = '<span class="text-gray-500 italic">Listening for speech...</span>';
-        }
-
-        async function processRecording() {
-            if (audioChunks.length === 0) return;
-
-            const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
-            audioChunks = [];
-            
-            await transcribeAudio(audioBlob, \`Recording \${new Date().toLocaleString()}\`);
-        }
-
-        async function transcribeAudio(audioBlob, fileName) {
-            isTranscribing = true;
-            processingStatus.classList.remove('hidden');
-            processingText.textContent = 'Transcribing audio...';
-            
-            try {
-                const reader = new FileReader();
-                reader.onload = async () => {
-                    const base64Audio = reader.result;
-                    
-                    const response = await fetch('/api/transcribe', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            audioData: base64Audio,
-                            fileName: fileName,
-                            includeTimestamps: true,
-                            includeSpeakers: true
-                        })
-                    });
-
-                    if (!response.ok) {
-                        throw new Error(\`Transcription API error: \${response.status}\`);
-                    }
-
-                    const result = await response.json();
-                    
-                    if (result.error) {
-                        throw new Error(result.error);
-                    }
-                    
-                    const newTranscription = {
-                        id: Date.now(),
-                        fileName: result.fileName,
-                        content: result.transcription,
-                        timestamp: result.timestamp,
-                        audioBlob,
-                        summary: null,
-                        speakers: result.speakers || extractSpeakers(result.transcription),
-                        duration: result.duration,
-                        language: result.language
-                    };
-
-                    transcriptions.unshift(newTranscription);
-                    selectedTranscription = newTranscription;
-                    updateFileCount();
-                    renderFileList();
-                    showTranscription(newTranscription);
-                    isTranscribing = false;
-                    processingStatus.classList.add('hidden');
-                };
-                
-                reader.readAsDataURL(audioBlob);
-            } catch (error) {
-                console.error('Transcription error:', error);
-                isTranscribing = false;
-                processingStatus.classList.add('hidden');
-                alert(\`Error transcribing audio: \${error.message}\`);
-            }
-        }
-
-        function extractSpeakers(text) {
-            const speakerMatches = text.match(/Speaker \\d+/g) || [];
-            return [...new Set(speakerMatches)];
-        }
-
-        async function handleFileUpload(event) {
-            const file = event.target.files[0];
-            if (!file) return;
-
-            if (!file.type.startsWith('audio/') && !file.type.startsWith('video/')) {
-                alert('Please select an audio or video file.');
-                return;
-            }
-
-            await transcribeAudio(file, file.name);
-        }
-
-        function updateFileCount() {
-            fileCount.textContent = transcriptions.length;
-            fileCountDisplay.textContent = transcriptions.length;
-        }
-
-        function renderFileList() {
-            const searchQuery = searchInput.value.toLowerCase();
-            const filtered = transcriptions.filter(t =>
-                t.fileName.toLowerCase().includes(searchQuery) ||
-                t.content.toLowerCase().includes(searchQuery) ||
-                (t.summary && t.summary.toLowerCase().includes(searchQuery))
-            );
-
-            if (filtered.length === 0) {
-                fileList.innerHTML = '<div id="emptyState" class="text-center py-8 text-gray-500"><i class="fas fa-file-audio text-3xl mb-2"></i><p class="text-sm">' + (searchQuery ? 'No matching files found' : 'No transcriptions yet') + '</p></div>';
-                return;
-            }
-
-            fileList.innerHTML = filtered.map(transcription => \`
-                <div class="p-3 rounded-lg border cursor-pointer transition-colors \${selectedTranscription?.id === transcription.id ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'}" onclick="selectTranscription(\${transcription.id})">
-                    <div class="flex items-center justify-between">
-                        <div class="flex-1 min-w-0">
-                            <p class="text-sm font-medium text-gray-900 truncate">\${transcription.fileName}</p>
-                            <p class="text-xs text-gray-500">\${new Date(transcription.timestamp).toLocaleDateString()}</p>
-                        </div>
-                        <button onclick="event.stopPropagation(); deleteTranscription(\${transcription.id})" class="text-gray-400 hover:text-red-500 ml-2">
-                            <i class="fas fa-trash text-xs"></i>
-                        </button>
-                    </div>
-                </div>
-            \`).join('');
-        }
-
-        function filterTranscriptions() {
-            renderFileList();
-        }
-
-        function selectTranscription(id) {
-            selectedTranscription = transcriptions.find(t => t.id === id);
-            showTranscription(selectedTranscription);
-            renderFileList();
-        }
-
-        function showTranscription(transcription) {
-            transcriptionView.classList.add('hidden');
-            transcriptionContent.classList.remove('hidden');
-            
-            transcriptionTitle.textContent = transcription.fileName;
-            transcriptionDate.textContent = new Date(transcription.timestamp).toLocaleString();
-            
-            if (transcription.summary) {
-                summarySection.classList.remove('hidden');
-                summaryText.textContent = transcription.summary;
-                summarizeBtn.innerHTML = '<i class="fas fa-magic mr-2"></i>Re-summarize';
-            } else {
-                summarySection.classList.add('hidden');
-                summarizeBtn.innerHTML = '<i class="fas fa-magic mr-2"></i>Summarize';
-            }
-            
-            transcriptionText.innerHTML = transcription.content.split('\\n').map((line, index) => {
-                const speakerMatch = line.match(/^(\\[[\\d:]+\\]\\s*)(Speaker \\d+)(:.*)/);
-                if (speakerMatch) {
-                    const [, timestamp, speaker, content] = speakerMatch;
-                    const speakerKey = \`\${transcription.id}-\${speaker}\`;
-                    const customName = speakerNames[speakerKey];
-                    
-                    return \`
-                        <div class="mb-2">
-                            <span class="text-gray-500">\${timestamp}</span>
-                            <button onclick="editSpeaker('\${speakerKey}', '\${speaker}')" class="mx-1 text-blue-600 font-medium hover:underline">
-                                \${customName || speaker}
-                            </button>
-                            <span>\${content}</span>
-                        </div>
-                    \`;
-                }
-                return \`<div class="mb-1">\${line}</div>\`;
-            }).join('');
-        }
-
-        function editSpeaker(speakerKey, originalSpeaker) {
-            // Simple prompt for speaker name editing
-            const newName = prompt('Enter new speaker name:', speakerNames[speakerKey] || originalSpeaker);
-            if (newName && newName !== originalSpeaker) {
-                speakerNames[speakerKey] = newName;
-                
-                // Update transcription content
-                selectedTranscription.content = selectedTranscription.content.replace(
-                    new RegExp(originalSpeaker, 'g'),
-                    newName
-                );
-                
-                showTranscription(selectedTranscription);
-            }
-        }
-
-        function deleteTranscription(id) {
-            if (confirm('Are you sure you want to delete this transcription?')) {
-                transcriptions = transcriptions.filter(t => t.id !== id);
-                if (selectedTranscription && selectedTranscription.id === id) {
-                    selectedTranscription = null;
-                    transcriptionView.classList.remove('hidden');
-                    transcriptionContent.classList.add('hidden');
-                }
-                updateFileCount();
-                renderFileList();
-            }
-        }
-
-        async function summarizeCurrentTranscription() {
-            if (!selectedTranscription) return;
-            
-            isSummarizing = true;
-            summarizeBtn.innerHTML = '<i class="fas fa-spinner animate-spin mr-2"></i>Summarizing...';
-            summarizeBtn.disabled = true;
-            
-            try {
-                const response = await fetch('/integrations/chat-gpt/conversationgpt4', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        messages: [
-                            {
-                                role: 'system',
-                                content: 'You are an expert at summarizing and organizing transcribed content. Create a comprehensive summary with key points, action items, and important topics discussed.'
-                            },
-                            {
-                                role: 'user',
-                                content: \`Please summarize and organize this transcription:\\n\\n\${selectedTranscription.content}\`
-                            }
-                        ]
-                    })
-                });
-
-                const result = await response.json();
-                const summary = result.choices[0].message.content;
-                
-                selectedTranscription.summary = summary;
-                showTranscription(selectedTranscription);
-                
-                isSummarizing = false;
-                summarizeBtn.disabled = false;
-            } catch (error) {
-                console.error('Summarization error:', error);
-                isSummarizing = false;
-                summarizeBtn.innerHTML = '<i class="fas fa-magic mr-2"></i>Summarize';
-                summarizeBtn.disabled = false;
-                alert('Error generating summary. Please try again.');
-            }
-        }
-
-        function exportTranscription(format) {
-            if (!selectedTranscription) return;
-            
-            const content = \`\${selectedTranscription.fileName}\\n\\nTranscription:\\n\${selectedTranscription.content}\\n\\n\${selectedTranscription.summary ? \`Summary:\\n\${selectedTranscription.summary}\` : ''}\`;
-            
-            if (format === 'txt') {
-                const blob = new Blob([content], { type: 'text/plain' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = \`\${selectedTranscription.fileName}_transcription.txt\`;
-                a.click();
-                URL.revokeObjectURL(url);
-            } else if (format === 'json') {
-                const blob = new Blob([JSON.stringify(selectedTranscription, null, 2)], { type: 'application/json' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = \`\${selectedTranscription.fileName}_transcription.json\`;
-                a.click();
-                URL.revokeObjectURL(url);
-            }
-        }
-
-        // Initialize
-        updateAudioSource();
-        updateFileCount();
-    </script>
-</body>
-</html>
-        `,
-        }}
-      />
-    </div>
-  );
+<!DOCTYPE html><html lang="en" class="h-full w-full"><head><meta charSet="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><link rel="stylesheet" href="/_next/static/css/a99aa4224fa1734c.css" data-precedence="next"/><link rel="stylesheet" href="/_next/static/css/275ed64cc4367444.css" data-precedence="next"/><link rel="preload" as="script" fetchPriority="low" href="/_next/static/chunks/webpack-36ab12d060fbfc4d.js"/><script src="/_next/static/chunks/dc6d687c-d80960b4487fa86c.js" async=""></script><script src="/_next/static/chunks/b6261da7-0be38a1b98f1006e.js" async=""></script><script src="/_next/static/chunks/3370-5d0c354dcfa31ab7.js" async=""></script><script src="/_next/static/chunks/main-app-1bb827941d545af0.js" async=""></script><script src="/_next/static/chunks/5343-137132f9c43132af.js" async=""></script><script src="/_next/static/chunks/885-1cb35b955f6af70c.js" async=""></script><script src="/_next/static/chunks/app/link/layout-929633c73faaaff1.js" async=""></script><script src="/_next/static/chunks/8695-0c4f64fbb5ce8f16.js" async=""></script><script src="/_next/static/chunks/7246-23290606153b3304.js" async=""></script><script src="/_next/static/chunks/1855-0f93fc355a7c3c9a.js" async=""></script><script src="/_next/static/chunks/2466-c2577d6b6a7244ca.js" async=""></script><script src="/_next/static/chunks/app/global-error-3b0f470e2bc38f45.js" async=""></script><script src="/_next/static/chunks/9511-a4f559277915e5f7.js" async=""></script><script src="/_next/static/chunks/app/layout-1baeac0dbeb2bf04.js" async=""></script><script async="" src="https://kit.fontawesome.com/2c15cc0cc7.js" crossorigin="anonymous"></script><script src="/_next/static/chunks/4035-5b13b6175d8c5dcb.js" async=""></script><script src="/_next/static/chunks/2077-35d8f3acd0798f7d.js" async=""></script><script src="/_next/static/chunks/7237-ce69457aa8101ef4.js" async=""></script><script src="/_next/static/chunks/5169-bd9e3a29e4f266ab.js" async=""></script><script src="/_next/static/chunks/app/link/%5Bslug%5D/page-d895fc0f210568df.js" async=""></script><link rel="preconnect" href="https://fonts.googleapis.com"/><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous"/><title>Audio Transcription Tool</title><meta name="description" content="https://ai-audio-transcriber-and-su-460.created.app"/><meta property="og:title" content="Audio Transcription Tool"/><meta property="og:description" content="https://ai-audio-transcriber-and-su-460.created.app"/><meta property="og:site_name" content="AI Audio Transcriber and Summarizer"/><meta property="og:image:type" content="image/png"/><meta property="og:image" content="https://ai-audio-transcriber-and-su-460.created.app/link/ai-audio-transcriber-and-su-460/opengraph-image?fe7ec8d988bc4631"/><meta property="og:type" content="website"/><meta name="twitter:card" content="summary_large_image"/><meta name="twitter:title" content="Audio Transcription Tool"/><meta name="twitter:description" content="https://ai-audio-transcriber-and-su-460.created.app"/><meta name="twitter:image:type" content="image/png"/><meta name="twitter:image" content="https://ai-audio-transcriber-and-su-460.created.app/link/ai-audio-transcriber-and-su-460/twitter-image?fe7ec8d988bc4631"/><meta name="next-size-adjust"/><link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600&amp;display=block" rel="stylesheet"/><script>!function(t){function e(){var e=this||self;e.globalThis=e,delete t.prototype._T_}"object"!=typeof globalThis&&(this?e():(t.defineProperty(t.prototype,"_T_",{configurable:!0,get:e}),_T_))}(Object);</script><script src="/_next/static/chunks/polyfills-42372ed130431b0a.js" noModule=""></script></head><body class="h-full w-full"><style>*, ::before, ::after {
+  --tw-border-spacing-x: 0;
+  --tw-border-spacing-y: 0;
+  --tw-translate-x: 0;
+  --tw-translate-y: 0;
+  --tw-rotate: 0;
+  --tw-skew-x: 0;
+  --tw-skew-y: 0;
+  --tw-scale-x: 1;
+  --tw-scale-y: 1;
+  --tw-pan-x:  ;
+  --tw-pan-y:  ;
+  --tw-pinch-zoom:  ;
+  --tw-scroll-snap-strictness: proximity;
+  --tw-gradient-from-position:  ;
+  --tw-gradient-via-position:  ;
+  --tw-gradient-to-position:  ;
+  --tw-ordinal:  ;
+  --tw-slashed-zero:  ;
+  --tw-numeric-figure:  ;
+  --tw-numeric-spacing:  ;
+  --tw-numeric-fraction:  ;
+  --tw-ring-inset:  ;
+  --tw-ring-offset-width: 0px;
+  --tw-ring-offset-color: #fff;
+  --tw-ring-color: rgb(59 130 246 / 0.5);
+  --tw-ring-offset-shadow: 0 0 #0000;
+  --tw-ring-shadow: 0 0 #0000;
+  --tw-shadow: 0 0 #0000;
+  --tw-shadow-colored: 0 0 #0000;
+  --tw-blur:  ;
+  --tw-brightness:  ;
+  --tw-contrast:  ;
+  --tw-grayscale:  ;
+  --tw-hue-rotate:  ;
+  --tw-invert:  ;
+  --tw-saturate:  ;
+  --tw-sepia:  ;
+  --tw-drop-shadow:  ;
+  --tw-backdrop-blur:  ;
+  --tw-backdrop-brightness:  ;
+  --tw-backdrop-contrast:  ;
+  --tw-backdrop-grayscale:  ;
+  --tw-backdrop-hue-rotate:  ;
+  --tw-backdrop-invert:  ;
+  --tw-backdrop-opacity:  ;
+  --tw-backdrop-saturate:  ;
+  --tw-backdrop-sepia:  ;
+  --tw-contain-size:  ;
+  --tw-contain-layout:  ;
+  --tw-contain-paint:  ;
+  --tw-contain-style:  ;
 }
 
+::backdrop {
+  --tw-border-spacing-x: 0;
+  --tw-border-spacing-y: 0;
+  --tw-translate-x: 0;
+  --tw-translate-y: 0;
+  --tw-rotate: 0;
+  --tw-skew-x: 0;
+  --tw-skew-y: 0;
+  --tw-scale-x: 1;
+  --tw-scale-y: 1;
+  --tw-pan-x:  ;
+  --tw-pan-y:  ;
+  --tw-pinch-zoom:  ;
+  --tw-scroll-snap-strictness: proximity;
+  --tw-gradient-from-position:  ;
+  --tw-gradient-via-position:  ;
+  --tw-gradient-to-position:  ;
+  --tw-ordinal:  ;
+  --tw-slashed-zero:  ;
+  --tw-numeric-figure:  ;
+  --tw-numeric-spacing:  ;
+  --tw-numeric-fraction:  ;
+  --tw-ring-inset:  ;
+  --tw-ring-offset-width: 0px;
+  --tw-ring-offset-color: #fff;
+  --tw-ring-color: rgb(59 130 246 / 0.5);
+  --tw-ring-offset-shadow: 0 0 #0000;
+  --tw-ring-shadow: 0 0 #0000;
+  --tw-shadow: 0 0 #0000;
+  --tw-shadow-colored: 0 0 #0000;
+  --tw-blur:  ;
+  --tw-brightness:  ;
+  --tw-contrast:  ;
+  --tw-grayscale:  ;
+  --tw-hue-rotate:  ;
+  --tw-invert:  ;
+  --tw-saturate:  ;
+  --tw-sepia:  ;
+  --tw-drop-shadow:  ;
+  --tw-backdrop-blur:  ;
+  --tw-backdrop-brightness:  ;
+  --tw-backdrop-contrast:  ;
+  --tw-backdrop-grayscale:  ;
+  --tw-backdrop-hue-rotate:  ;
+  --tw-backdrop-invert:  ;
+  --tw-backdrop-opacity:  ;
+  --tw-backdrop-saturate:  ;
+  --tw-backdrop-sepia:  ;
+  --tw-contain-size:  ;
+  --tw-contain-layout:  ;
+  --tw-contain-paint:  ;
+  --tw-contain-style:  ;
+}/*
+! tailwindcss v3.4.14 | MIT License | https://tailwindcss.com
+*//*
+1. Prevent padding and border from affecting element width. (https://github.com/mozdevs/cssremedy/issues/4)
+2. Allow adding a border to an element by just adding a border-width. (https://github.com/tailwindcss/tailwindcss/pull/116)
+*/
 
+*,
+::before,
+::after {
+  box-sizing: border-box; /* 1 */
+  border-width: 0; /* 2 */
+  border-style: solid; /* 2 */
+  border-color: #e5e7eb; /* 2 */
+}
 
+::before,
+::after {
+  --tw-content: '';
+}
+
+/*
+1. Use a consistent sensible line-height in all browsers.
+2. Prevent adjustments of font size after orientation changes in iOS.
+3. Use a more readable tab size.
+4. Use the user's configured `sans` font-family by default.
+5. Use the user's configured `sans` font-feature-settings by default.
+6. Use the user's configured `sans` font-variation-settings by default.
+7. Disable tap highlights on iOS
+*/
+
+html,
+:host {
+  line-height: 1.5; /* 1 */
+  -webkit-text-size-adjust: 100%; /* 2 */
+  -moz-tab-size: 4; /* 3 */
+  tab-size: 4; /* 3 */
+  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji"; /* 4 */
+  font-feature-settings: normal; /* 5 */
+  font-variation-settings: normal; /* 6 */
+  -webkit-tap-highlight-color: transparent; /* 7 */
+}
+
+/*
+1. Remove the margin in all browsers.
+2. Inherit line-height from `html` so users can set them as a class directly on the `html` element.
+*/
+
+body {
+  margin: 0; /* 1 */
+  line-height: inherit; /* 2 */
+}
+
+/*
+1. Add the correct height in Firefox.
+2. Correct the inheritance of border color in Firefox. (https://bugzilla.mozilla.org/show_bug.cgi?id=190655)
+3. Ensure horizontal rules are visible by default.
+*/
+
+hr {
+  height: 0; /* 1 */
+  color: inherit; /* 2 */
+  border-top-width: 1px; /* 3 */
+}
+
+/*
+Add the correct text decoration in Chrome, Edge, and Safari.
+*/
+
+abbr:where([title]) {
+  text-decoration: underline dotted;
+}
+
+/*
+Remove the default font size and weight for headings.
+*/
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-size: inherit;
+  font-weight: inherit;
+}
+
+/*
+Reset links to optimize for opt-in styling instead of opt-out.
+*/
+
+a {
+  color: inherit;
+  text-decoration: inherit;
+}
+
+/*
+Add the correct font weight in Edge and Safari.
+*/
+
+b,
+strong {
+  font-weight: bolder;
+}
+
+/*
+1. Use the user's configured `mono` font-family by default.
+2. Use the user's configured `mono` font-feature-settings by default.
+3. Use the user's configured `mono` font-variation-settings by default.
+4. Correct the odd `em` font sizing in all browsers.
+*/
+
+code,
+kbd,
+samp,
+pre {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; /* 1 */
+  font-feature-settings: normal; /* 2 */
+  font-variation-settings: normal; /* 3 */
+  font-size: 1em; /* 4 */
+}
+
+/*
+Add the correct font size in all browsers.
+*/
+
+small {
+  font-size: 80%;
+}
+
+/*
+Prevent `sub` and `sup` elements from affecting the line height in all browsers.
+*/
+
+sub,
+sup {
+  font-size: 75%;
+  line-height: 0;
+  position: relative;
+  vertical-align: baseline;
+}
+
+sub {
+  bottom: -0.25em;
+}
+
+sup {
+  top: -0.5em;
+}
+
+/*
+1. Remove text indentation from table contents in Chrome and Safari. (https://bugs.chromium.org/p/chromium/issues/detail?id=999088, https://bugs.webkit.org/show_bug.cgi?id=201297)
+2. Correct table border color inheritance in all Chrome and Safari. (https://bugs.chromium.org/p/chromium/issues/detail?id=935729, https://bugs.webkit.org/show_bug.cgi?id=195016)
+3. Remove gaps between table borders by default.
+*/
+
+table {
+  text-indent: 0; /* 1 */
+  border-color: inherit; /* 2 */
+  border-collapse: collapse; /* 3 */
+}
+
+/*
+1. Change the font styles in all browsers.
+2. Remove the margin in Firefox and Safari.
+3. Remove default padding in all browsers.
+*/
+
+button,
+input,
+optgroup,
+select,
+textarea {
+  font-family: inherit; /* 1 */
+  font-feature-settings: inherit; /* 1 */
+  font-variation-settings: inherit; /* 1 */
+  font-size: 100%; /* 1 */
+  font-weight: inherit; /* 1 */
+  line-height: inherit; /* 1 */
+  letter-spacing: inherit; /* 1 */
+  color: inherit; /* 1 */
+  margin: 0; /* 2 */
+  padding: 0; /* 3 */
+}
+
+/*
+Remove the inheritance of text transform in Edge and Firefox.
+*/
+
+button,
+select {
+  text-transform: none;
+}
+
+/*
+1. Correct the inability to style clickable types in iOS and Safari.
+2. Remove default button styles.
+*/
+
+button,
+input:where([type='button']),
+input:where([type='reset']),
+input:where([type='submit']) {
+  -webkit-appearance: button; /* 1 */
+  background-color: transparent; /* 2 */
+  background-image: none; /* 2 */
+}
+
+/*
+Use the modern Firefox focus style for all focusable elements.
+*/
+
+:-moz-focusring {
+  outline: auto;
+}
+
+/*
+Remove the additional `:invalid` styles in Firefox. (https://github.com/mozilla/gecko-dev/blob/2f9eacd9d3d995c937b4251a5557d95d494c9be1/layout/style/res/forms.css#L728-L737)
+*/
+
+:-moz-ui-invalid {
+  box-shadow: none;
+}
+
+/*
+Add the correct vertical alignment in Chrome and Firefox.
+*/
+
+progress {
+  vertical-align: baseline;
+}
+
+/*
+Correct the cursor style of increment and decrement buttons in Safari.
+*/
+
+::-webkit-inner-spin-button,
+::-webkit-outer-spin-button {
+  height: auto;
+}
+
+/*
+1. Correct the odd appearance in Chrome and Safari.
+2. Correct the outline style in Safari.
+*/
+
+[type='search'] {
+  -webkit-appearance: textfield; /* 1 */
+  outline-offset: -2px; /* 2 */
+}
+
+/*
+Remove the inner padding in Chrome and Safari on macOS.
+*/
+
+::-webkit-search-decoration {
+  -webkit-appearance: none;
+}
+
+/*
+1. Correct the inability to style clickable types in iOS and Safari.
+2. Change font properties to `inherit` in Safari.
+*/
+
+::-webkit-file-upload-button {
+  -webkit-appearance: button; /* 1 */
+  font: inherit; /* 2 */
+}
+
+/*
+Add the correct display in Chrome and Safari.
+*/
+
+summary {
+  display: list-item;
+}
+
+/*
+Removes the default spacing and border for appropriate elements.
+*/
+
+blockquote,
+dl,
+dd,
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+hr,
+figure,
+p,
+pre {
+  margin: 0;
+}
+
+fieldset {
+  margin: 0;
+  padding: 0;
+}
+
+legend {
+  padding: 0;
+}
+
+ol,
+ul,
+menu {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+/*
+Reset default styling for dialogs.
+*/
+dialog {
+  padding: 0;
+}
+
+/*
+Prevent resizing textareas horizontally by default.
+*/
+
+textarea {
+  resize: vertical;
+}
+
+/*
+1. Reset the default placeholder opacity in Firefox. (https://github.com/tailwindlabs/tailwindcss/issues/3300)
+2. Set the default placeholder color to the user's configured gray 400 color.
+*/
+
+input::placeholder,
+textarea::placeholder {
+  opacity: 1; /* 1 */
+  color: #9ca3af; /* 2 */
+}
+
+/*
+Set the default cursor for buttons.
+*/
+
+button,
+[role="button"] {
+  cursor: pointer;
+}
+
+/*
+Make sure disabled buttons don't get the pointer cursor.
+*/
+:disabled {
+  cursor: default;
+}
+
+/*
+1. Make replaced elements `display: block` by default. (https://github.com/mozdevs/cssremedy/issues/14)
+2. Add `vertical-align: middle` to align replaced elements more sensibly by default. (https://github.com/jensimmons/cssremedy/issues/14#issuecomment-634934210)
+   This can trigger a poorly considered lint error in some tools but is included by design.
+*/
+
+img,
+svg,
+video,
+canvas,
+audio,
+iframe,
+embed,
+object {
+  display: block; /* 1 */
+  vertical-align: middle; /* 2 */
+}
+
+/*
+Constrain images and videos to the parent width and preserve their intrinsic aspect ratio. (https://github.com/mozdevs/cssremedy/issues/14)
+*/
+
+img,
+video {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Make elements with the HTML hidden attribute stay hidden by default */
+[hidden]:where(:not([hidden="until-found"])) {
+  display: none;
+}
+  .invisible {
+  visibility: hidden;
+}
+  .absolute {
+  position: absolute;
+}
+  .relative {
+  position: relative;
+}
+  .left-3 {
+  left: 0.75rem;
+}
+  .right-0 {
+  right: 0px;
+}
+  .top-3 {
+  top: 0.75rem;
+}
+  .z-10 {
+  z-index: 10;
+}
+  .mx-1 {
+  margin-left: 0.25rem;
+  margin-right: 0.25rem;
+}
+  .mx-auto {
+  margin-left: auto;
+  margin-right: auto;
+}
+  .mb-1 {
+  margin-bottom: 0.25rem;
+}
+  .mb-2 {
+  margin-bottom: 0.5rem;
+}
+  .mb-3 {
+  margin-bottom: 0.75rem;
+}
+  .mb-4 {
+  margin-bottom: 1rem;
+}
+  .mb-6 {
+  margin-bottom: 1.5rem;
+}
+  .ml-2 {
+  margin-left: 0.5rem;
+}
+  .ml-auto {
+  margin-left: auto;
+}
+  .mr-1 {
+  margin-right: 0.25rem;
+}
+  .mr-2 {
+  margin-right: 0.5rem;
+}
+  .mt-1 {
+  margin-top: 0.25rem;
+}
+  .mt-2 {
+  margin-top: 0.5rem;
+}
+  .mt-3 {
+  margin-top: 0.75rem;
+}
+  .block {
+  display: block;
+}
+  .flex {
+  display: flex;
+}
+  .grid {
+  display: grid;
+}
+  .hidden {
+  display: none;
+}
+  .h-2 {
+  height: 0.5rem;
+}
+  .h-24 {
+  height: 6rem;
+}
+  .h-5 {
+  height: 1.25rem;
+}
+  .h-8 {
+  height: 2rem;
+}
+  .max-h-96 {
+  max-height: 24rem;
+}
+  .max-h-\[200px\] {
+  max-height: 200px;
+}
+  .min-h-\[120px\] {
+  min-height: 120px;
+}
+  .min-h-screen {
+  min-height: 100vh;
+}
+  .w-2 {
+  width: 0.5rem;
+}
+  .w-24 {
+  width: 6rem;
+}
+  .w-48 {
+  width: 12rem;
+}
+  .w-5 {
+  width: 1.25rem;
+}
+  .w-8 {
+  width: 2rem;
+}
+  .w-full {
+  width: 100%;
+}
+  .min-w-0 {
+  min-width: 0px;
+}
+  .max-w-7xl {
+  max-width: 80rem;
+}
+  .flex-1 {
+  flex: 1 1 0%;
+}
+  @keyframes pulse {
+
+  0%,100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: .5;
+  }
+}
+  .animate-pulse {
+  animation: pulse 2s cubic-bezier(0.4,0,0.6,1) infinite;
+}
+  @keyframes spin {
+
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+  .animate-spin {
+  animation: spin 1s linear infinite;
+}
+  .cursor-pointer {
+  cursor: pointer;
+}
+  .grid-cols-1 {
+  grid-template-columns: repeat(1, minmax(0, 1fr));
+}
+  .flex-col {
+  flex-direction: column;
+}
+  .items-center {
+  align-items: center;
+}
+  .justify-center {
+  justify-content: center;
+}
+  .justify-between {
+  justify-content: space-between;
+}
+  .gap-8 {
+  gap: 2rem;
+}
+  .space-x-2 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 0;
+  margin-right: calc(0.5rem * var(--tw-space-x-reverse));
+  margin-left: calc(0.5rem * calc(1 - var(--tw-space-x-reverse)));
+}
+  .space-x-3 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 0;
+  margin-right: calc(0.75rem * var(--tw-space-x-reverse));
+  margin-left: calc(0.75rem * calc(1 - var(--tw-space-x-reverse)));
+}
+  .space-x-4 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 0;
+  margin-right: calc(1rem * var(--tw-space-x-reverse));
+  margin-left: calc(1rem * calc(1 - var(--tw-space-x-reverse)));
+}
+  .space-y-2 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-y-reverse: 0;
+  margin-top: calc(0.5rem * calc(1 - var(--tw-space-y-reverse)));
+  margin-bottom: calc(0.5rem * var(--tw-space-y-reverse));
+}
+  .space-y-4 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-y-reverse: 0;
+  margin-top: calc(1rem * calc(1 - var(--tw-space-y-reverse)));
+  margin-bottom: calc(1rem * var(--tw-space-y-reverse));
+}
+  .space-y-6 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-y-reverse: 0;
+  margin-top: calc(1.5rem * calc(1 - var(--tw-space-y-reverse)));
+  margin-bottom: calc(1.5rem * var(--tw-space-y-reverse));
+}
+  .overflow-y-auto {
+  overflow-y: auto;
+}
+  .truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+  .whitespace-pre-wrap {
+  white-space: pre-wrap;
+}
+  .rounded {
+  border-radius: 0.25rem;
+}
+  .rounded-full {
+  border-radius: 9999px;
+}
+  .rounded-lg {
+  border-radius: 0.5rem;
+}
+  .rounded-md {
+  border-radius: 0.375rem;
+}
+  .rounded-xl {
+  border-radius: 0.75rem;
+}
+  .rounded-b-lg {
+  border-bottom-right-radius: 0.5rem;
+  border-bottom-left-radius: 0.5rem;
+}
+  .rounded-t-lg {
+  border-top-left-radius: 0.5rem;
+  border-top-right-radius: 0.5rem;
+}
+  .border {
+  border-width: 1px;
+}
+  .border-2 {
+  border-width: 2px;
+}
+  .border-b {
+  border-bottom-width: 1px;
+}
+  .border-b-2 {
+  border-bottom-width: 2px;
+}
+  .border-t {
+  border-top-width: 1px;
+}
+  .border-dashed {
+  border-style: dashed;
+}
+  .border-blue-500 {
+  --tw-border-opacity: 1;
+  border-color: rgb(59 130 246 / var(--tw-border-opacity));
+}
+  .border-blue-600 {
+  --tw-border-opacity: 1;
+  border-color: rgb(37 99 235 / var(--tw-border-opacity));
+}
+  .border-gray-200 {
+  --tw-border-opacity: 1;
+  border-color: rgb(229 231 235 / var(--tw-border-opacity));
+}
+  .border-gray-300 {
+  --tw-border-opacity: 1;
+  border-color: rgb(209 213 219 / var(--tw-border-opacity));
+}
+  .border-green-200 {
+  --tw-border-opacity: 1;
+  border-color: rgb(187 247 208 / var(--tw-border-opacity));
+}
+  .bg-blue-50 {
+  --tw-bg-opacity: 1;
+  background-color: rgb(239 246 255 / var(--tw-bg-opacity));
+}
+  .bg-blue-500 {
+  --tw-bg-opacity: 1;
+  background-color: rgb(59 130 246 / var(--tw-bg-opacity));
+}
+  .bg-blue-600 {
+  --tw-bg-opacity: 1;
+  background-color: rgb(37 99 235 / var(--tw-bg-opacity));
+}
+  .bg-gray-100 {
+  --tw-bg-opacity: 1;
+  background-color: rgb(243 244 246 / var(--tw-bg-opacity));
+}
+  .bg-gray-50 {
+  --tw-bg-opacity: 1;
+  background-color: rgb(249 250 251 / var(--tw-bg-opacity));
+}
+  .bg-green-100 {
+  --tw-bg-opacity: 1;
+  background-color: rgb(220 252 231 / var(--tw-bg-opacity));
+}
+  .bg-green-50 {
+  --tw-bg-opacity: 1;
+  background-color: rgb(240 253 244 / var(--tw-bg-opacity));
+}
+  .bg-green-600 {
+  --tw-bg-opacity: 1;
+  background-color: rgb(22 163 74 / var(--tw-bg-opacity));
+}
+  .bg-red-100 {
+  --tw-bg-opacity: 1;
+  background-color: rgb(254 226 226 / var(--tw-bg-opacity));
+}
+  .bg-red-500 {
+  --tw-bg-opacity: 1;
+  background-color: rgb(239 68 68 / var(--tw-bg-opacity));
+}
+  .bg-white {
+  --tw-bg-opacity: 1;
+  background-color: rgb(255 255 255 / var(--tw-bg-opacity));
+}
+  .p-1 {
+  padding: 0.25rem;
+}
+  .p-12 {
+  padding: 3rem;
+}
+  .p-3 {
+  padding: 0.75rem;
+}
+  .p-4 {
+  padding: 1rem;
+}
+  .p-6 {
+  padding: 1.5rem;
+}
+  .px-2 {
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
+}
+  .px-3 {
+  padding-left: 0.75rem;
+  padding-right: 0.75rem;
+}
+  .px-4 {
+  padding-left: 1rem;
+  padding-right: 1rem;
+}
+  .py-1 {
+  padding-top: 0.25rem;
+  padding-bottom: 0.25rem;
+}
+  .py-2 {
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
+}
+  .py-4 {
+  padding-top: 1rem;
+  padding-bottom: 1rem;
+}
+  .py-8 {
+  padding-top: 2rem;
+  padding-bottom: 2rem;
+}
+  .pl-10 {
+  padding-left: 2.5rem;
+}
+  .pr-4 {
+  padding-right: 1rem;
+}
+  .pt-6 {
+  padding-top: 1.5rem;
+}
+  .text-left {
+  text-align: left;
+}
+  .text-center {
+  text-align: center;
+}
+  .text-2xl {
+  font-size: 1.5rem;
+  line-height: 2rem;
+}
+  .text-3xl {
+  font-size: 1.875rem;
+  line-height: 2.25rem;
+}
+  .text-6xl {
+  font-size: 3.75rem;
+  line-height: 1;
+}
+  .text-lg {
+  font-size: 1.125rem;
+  line-height: 1.75rem;
+}
+  .text-sm {
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
+  .text-xl {
+  font-size: 1.25rem;
+  line-height: 1.75rem;
+}
+  .text-xs {
+  font-size: 0.75rem;
+  line-height: 1rem;
+}
+  .font-bold {
+  font-weight: 700;
+}
+  .font-medium {
+  font-weight: 500;
+}
+  .font-semibold {
+  font-weight: 600;
+}
+  .italic {
+  font-style: italic;
+}
+  .leading-relaxed {
+  line-height: 1.625;
+}
+  .text-blue-600 {
+  --tw-text-opacity: 1;
+  color: rgb(37 99 235 / var(--tw-text-opacity));
+}
+  .text-gray-400 {
+  --tw-text-opacity: 1;
+  color: rgb(156 163 175 / var(--tw-text-opacity));
+}
+  .text-gray-500 {
+  --tw-text-opacity: 1;
+  color: rgb(107 114 128 / var(--tw-text-opacity));
+}
+  .text-gray-600 {
+  --tw-text-opacity: 1;
+  color: rgb(75 85 99 / var(--tw-text-opacity));
+}
+  .text-gray-700 {
+  --tw-text-opacity: 1;
+  color: rgb(55 65 81 / var(--tw-text-opacity));
+}
+  .text-gray-800 {
+  --tw-text-opacity: 1;
+  color: rgb(31 41 55 / var(--tw-text-opacity));
+}
+  .text-gray-900 {
+  --tw-text-opacity: 1;
+  color: rgb(17 24 39 / var(--tw-text-opacity));
+}
+  .text-green-700 {
+  --tw-text-opacity: 1;
+  color: rgb(21 128 61 / var(--tw-text-opacity));
+}
+  .text-green-800 {
+  --tw-text-opacity: 1;
+  color: rgb(22 101 52 / var(--tw-text-opacity));
+}
+  .text-green-900 {
+  --tw-text-opacity: 1;
+  color: rgb(20 83 45 / var(--tw-text-opacity));
+}
+  .text-red-700 {
+  --tw-text-opacity: 1;
+  color: rgb(185 28 28 / var(--tw-text-opacity));
+}
+  .text-white {
+  --tw-text-opacity: 1;
+  color: rgb(255 255 255 / var(--tw-text-opacity));
+}
+  .opacity-0 {
+  opacity: 0;
+}
+  .shadow-lg {
+  --tw-shadow: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -4px rgba(0,0,0,0.1);
+  --tw-shadow-colored: 0 10px 15px -3px var(--tw-shadow-color), 0 4px 6px -4px var(--tw-shadow-color);
+  box-shadow: var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow);
+}
+  .shadow-sm {
+  --tw-shadow: 0 1px 2px 0 rgba(0,0,0,0.05);
+  --tw-shadow-colored: 0 1px 2px 0 var(--tw-shadow-color);
+  box-shadow: var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow);
+}
+  .filter {
+  filter: var(--tw-blur) var(--tw-brightness) var(--tw-contrast) var(--tw-grayscale) var(--tw-hue-rotate) var(--tw-invert) var(--tw-saturate) var(--tw-sepia) var(--tw-drop-shadow);
+}
+  .transition-all {
+  transition-property: all;
+  transition-timing-function: cubic-bezier(0.4,0,0.2,1);
+  transition-duration: 150ms;
+}
+  .transition-colors {
+  transition-property: color,background-color,border-color,text-decoration-color,fill,stroke;
+  transition-timing-function: cubic-bezier(0.4,0,0.2,1);
+  transition-duration: 150ms;
+}
+  .duration-200 {
+  transition-duration: 200ms;
+}
+  .duration-300 {
+  transition-duration: 300ms;
+}
+  .hover\:border-blue-400:hover {
+  --tw-border-opacity: 1;
+  border-color: rgb(96 165 250 / var(--tw-border-opacity));
+}
+  .hover\:border-gray-300:hover {
+  --tw-border-opacity: 1;
+  border-color: rgb(209 213 219 / var(--tw-border-opacity));
+}
+  .hover\:bg-blue-600:hover {
+  --tw-bg-opacity: 1;
+  background-color: rgb(37 99 235 / var(--tw-bg-opacity));
+}
+  .hover\:bg-blue-700:hover {
+  --tw-bg-opacity: 1;
+  background-color: rgb(29 78 216 / var(--tw-bg-opacity));
+}
+  .hover\:bg-gray-50:hover {
+  --tw-bg-opacity: 1;
+  background-color: rgb(249 250 251 / var(--tw-bg-opacity));
+}
+  .hover\:bg-green-200:hover {
+  --tw-bg-opacity: 1;
+  background-color: rgb(187 247 208 / var(--tw-bg-opacity));
+}
+  .hover\:bg-green-700:hover {
+  --tw-bg-opacity: 1;
+  background-color: rgb(21 128 61 / var(--tw-bg-opacity));
+}
+  .hover\:bg-red-200:hover {
+  --tw-bg-opacity: 1;
+  background-color: rgb(254 202 202 / var(--tw-bg-opacity));
+}
+  .hover\:text-gray-700:hover {
+  --tw-text-opacity: 1;
+  color: rgb(55 65 81 / var(--tw-text-opacity));
+}
+  .hover\:text-gray-900:hover {
+  --tw-text-opacity: 1;
+  color: rgb(17 24 39 / var(--tw-text-opacity));
+}
+  .hover\:text-red-500:hover {
+  --tw-text-opacity: 1;
+  color: rgb(239 68 68 / var(--tw-text-opacity));
+}
+  .hover\:underline:hover {
+  text-decoration-line: underline;
+}
+  .focus\:border-transparent:focus {
+  border-color: transparent;
+}
+  .focus\:outline-none:focus {
+  outline: 2px solid transparent;
+  outline-offset: 2px;
+}
+  .focus\:ring-2:focus {
+  --tw-ring-offset-shadow: var(--tw-ring-inset) 0 0 0 var(--tw-ring-offset-width) var(--tw-ring-offset-color);
+  --tw-ring-shadow: var(--tw-ring-inset) 0 0 0 calc(2px + var(--tw-ring-offset-width)) var(--tw-ring-color);
+  box-shadow: var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow, 0 0 #0000);
+}
+  .focus\:ring-blue-500:focus {
+  --tw-ring-opacity: 1;
+  --tw-ring-color: rgb(59 130 246 / var(--tw-ring-opacity));
+}
+  .disabled\:opacity-50:disabled {
+  opacity: 0.5;
+}
+  .group:hover .group-hover\:visible {
+  visibility: visible;
+}
+  .group:hover .group-hover\:opacity-100 {
+  opacity: 1;
+}
+  @media (min-width: 640px) {
+
+  .sm\:px-6 {
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+  }
+}
+  @media (min-width: 1024px) {
+
+  .lg\:col-span-1 {
+    grid-column: span 1 / span 1;
+  }
+
+  .lg\:col-span-2 {
+    grid-column: span 2 / span 2;
+  }
+
+  .lg\:grid-cols-3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .lg\:px-8 {
+    padding-left: 2rem;
+    padding-right: 2rem;
+  }
+}
+</style><style data-twind="" id="twind-styles"></style><div class="__className_e8ce0c relative h-full w-full"><!--$--><div class="min-h-screen bg-gray-50"><div class="bg-white shadow-sm border-b"><div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"><div class="flex justify-between items-center py-4"><div class="flex items-center space-x-3"><div class="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center"><i class="fas fa-microphone text-white text-sm"></i></div><h1 class="text-2xl font-bold text-gray-900">TridentAudio</h1></div><div class="flex items-center space-x-4"><div class="flex bg-gray-100 rounded-lg p-1"><button class="px-4 py-2 rounded-md text-sm font-medium transition-colors bg-white text-blue-600 shadow-sm">Record</button><button class="px-4 py-2 rounded-md text-sm font-medium transition-colors text-gray-600 hover:text-gray-900">Files (<!-- -->0<!-- -->)</button></div></div></div></div></div><div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8"><div class="grid grid-cols-1 lg:grid-cols-3 gap-8"><div class="lg:col-span-1"><div class="bg-white rounded-xl shadow-sm border p-6"><div class="space-y-6"><div><h2 class="text-lg font-semibold text-gray-900 mb-4">Audio Recording</h2><div class="mb-4"><label class="block text-sm font-medium text-gray-700 mb-2">Audio Source</label><select class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"><option value="microphone" selected="">Microphone (Input)</option><option value="system">System Audio (Output)</option><option value="both">Both (Input + Output)</option></select><p class="text-xs text-gray-500 mt-1">Records from your microphone</p></div><div class="flex flex-col items-center space-y-4"><div class="w-24 h-24 rounded-full flex items-center justify-center transition-all duration-300 bg-blue-500 hover:bg-blue-600"><button class="text-white text-2xl focus:outline-none"><i class="fas fa-microphone"></i></button></div><div class="text-center"><p class="text-sm font-medium text-gray-900">Click to Start Recording</p><p class="text-xs text-gray-500 mt-1">Using microphone input</p></div></div></div><div class="border-t pt-6"><div class="flex items-center justify-between mb-3"><h3 class="text-md font-medium text-gray-900">Live Transcription</h3><button class="px-3 py-1 rounded-lg text-sm font-medium transition-colors bg-green-100 text-green-700 hover:bg-green-200"><i class="fas fa-play mr-1"></i>Start Live</button></div><div class="bg-gray-50 rounded-lg p-4 min-h-[120px] max-h-[200px] overflow-y-auto"><div class="text-sm text-gray-800"><span class="text-gray-500 italic">Click &quot;Start Live&quot; to begin real-time transcription</span></div></div></div><div class="border-t pt-6"><h3 class="text-md font-medium text-gray-900 mb-3">Upload Audio/Video</h3><div class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-blue-400 transition-colors"><input type="file" accept="audio/*,video/*" class="hidden" id="file-upload"/><label for="file-upload" class="cursor-pointer flex flex-col items-center space-y-2"><i class="fas fa-cloud-upload-alt text-3xl text-gray-400"></i><span class="text-sm text-gray-600">Click to upload audio or video file</span><span class="text-xs text-gray-400">Supports MP3, WAV, MP4, and more</span></label></div></div></div></div></div><div class="lg:col-span-2"><div class="bg-white rounded-xl shadow-sm border"><div class="p-12 text-center"><div class="text-gray-400 mb-4"><i class="fas fa-file-audio text-6xl"></i></div><h3 class="text-lg font-medium text-gray-900 mb-2">No transcription selected</h3><p class="text-gray-500">Start recording or upload a file to begin transcription</p></div></div></div></div></div></div><!--/$--></div><!--$--><!--$!--><template data-dgst="BAILOUT_TO_CLIENT_SIDE_RENDERING"></template><!--/$--><!--/$--><!--$--><!--/$--><script src="/_next/static/chunks/webpack-36ab12d060fbfc4d.js" async=""></script><script>(self.__next_f=self.__next_f||[]).push([0]);self.__next_f.push([2,null])</script><script>self.__next_f.push([1,"1:HL[\"/_next/static/media/e4af272ccee01ff0-s.p.woff2\",\"font\",{\"crossOrigin\":\"\",\"type\":\"font/woff2\"}]\n2:HL[\"/_next/static/css/a99aa4224fa1734c.css\",\"style\"]\n3:HL[\"/_next/static/css/275ed64cc4367444.css\",\"style\"]\n"])</script><script>self.__next_f.push([1,"4:I[60905,[],\"\"]\n7:I[84204,[],\"\"]\n9:I[69822,[],\"\"]\na:\"$Sreact.suspense\"\nb:I[96783,[\"5343\",\"static/chunks/5343-137132f9c43132af.js\",\"885\",\"static/chunks/885-1cb35b955f6af70c.js\",\"9098\",\"static/chunks/app/link/layout-929633c73faaaff1.js\"],\"Analytics\"]\ne:I[83502,[\"5343\",\"static/chunks/5343-137132f9c43132af.js\",\"8695\",\"static/chunks/8695-0c4f64fbb5ce8f16.js\",\"7246\",\"static/chunks/7246-23290606153b3304.js\",\"1855\",\"static/chunks/1855-0f93fc355a7c3c9a.js\",\"2466\",\"static/chunks/2466-c2577d6b6a7244ca.js\",\"6470\",\"static/chunks/app/global-error-3b0f470e2bc38f45.js\"],\"default\"]\n8:[\"slug\",\"ai-audio-transcriber-and-su-460\",\"d\"]\nf:[]\n"])</script><script>self.__next_f.push([1,"0:[\"$\",\"$L4\",null,{\"buildId\":\"XomkeLHX8CA11kA5wIc8o\",\"assetPrefix\":\"\",\"urlParts\":[\"\",\"\"],\"initialTree\":[\"\",{\"children\":[\"link\",{\"children\":[[\"slug\",\"ai-audio-transcriber-and-su-460\",\"d\"],{\"children\":[\"__PAGE__\",{}]}]}]},\"$undefined\",\"$undefined\",true],\"initialSeedData\":[\"\",{\"children\":[\"link\",{\"children\":[[\"slug\",\"ai-audio-transcriber-and-su-460\",\"d\"],{\"children\":[\"__PAGE__\",{},[[\"$L5\",\"$L6\",[[\"$\",\"link\",\"0\",{\"rel\":\"stylesheet\",\"href\":\"/_next/static/css/a99aa4224fa1734c.css\",\"precedence\":\"next\",\"crossOrigin\":\"$undefined\"}],[\"$\",\"link\",\"1\",{\"rel\":\"stylesheet\",\"href\":\"/_next/static/css/275ed64cc4367444.css\",\"precedence\":\"next\",\"crossOrigin\":\"$undefined\"}]]],null],null]},[null,[\"$\",\"$L7\",null,{\"parallelRouterKey\":\"children\",\"segmentPath\":[\"children\",\"link\",\"children\",\"$8\",\"children\"],\"error\":\"$undefined\",\"errorStyles\":\"$undefined\",\"errorScripts\":\"$undefined\",\"template\":[\"$\",\"$L9\",null,{}],\"templateStyles\":\"$undefined\",\"templateScripts\":\"$undefined\",\"notFound\":[\"$\",\"div\",null,{\"className\":\"flex justify-center\",\"children\":[\"$\",\"div\",null,{\"className\":\"mt-12 flex flex-col items-center justify-center text-[#32333e]\",\"children\":[[\"$\",\"h1\",null,{\"className\":\"mb-[12px] font-[600] text-[72px] leading-[120%]\",\"children\":\"404\"}],[\"$\",\"p\",null,{\"className\":\"mb-[16px] font-[500] text-[20px] leading-[140%]\",\"children\":\"Looks like you're lost.\"}],[\"$\",\"p\",null,{\"className\":\"font-[470] text-[14px] leading-[140%]\",\"children\":\"The page you are looking for does not exist.\"}]]}]}],\"notFoundStyles\":[[\"$\",\"link\",\"0\",{\"rel\":\"stylesheet\",\"href\":\"/_next/static/css/a99aa4224fa1734c.css\",\"precedence\":\"next\",\"crossOrigin\":\"$undefined\"}]]}]],null]},[[null,[[\"$\",\"$L7\",null,{\"parallelRouterKey\":\"children\",\"segmentPath\":[\"children\",\"link\",\"children\"],\"error\":\"$undefined\",\"errorStyles\":\"$undefined\",\"errorScripts\":\"$undefined\",\"template\":[\"$\",\"$L9\",null,{}],\"templateStyles\":\"$undefined\",\"templateScripts\":\"$undefined\",\"notFound\":\"$undefined\",\"notFoundStyles\":\"$undefined\"}],[\"$\",\"$a\",null,{\"children\":[\"$\",\"$Lb\",null,{}]}]]],null],null]},[[null,\"$Lc\"],null],null],\"couldBeIntercepted\":false,\"initialHead\":[null,\"$Ld\"],\"globalErrorComponent\":\"$e\",\"missingSlots\":\"$Wf\"}]\n"])</script><script>self.__next_f.push([1,"10:I[2327,[\"5343\",\"static/chunks/5343-137132f9c43132af.js\",\"9511\",\"static/chunks/9511-a4f559277915e5f7.js\",\"3185\",\"static/chunks/app/layout-1baeac0dbeb2bf04.js\"],\"default\"]\n"])</script><script>self.__next_f.push([1,"c:[\"$\",\"html\",null,{\"lang\":\"en\",\"className\":\"h-full w-full\",\"children\":[[\"$\",\"head\",null,{\"children\":[[\"$\",\"link\",null,{\"rel\":\"preconnect\",\"href\":\"https://fonts.googleapis.com\"}],[\"$\",\"link\",null,{\"rel\":\"preconnect\",\"href\":\"https://fonts.gstatic.com\",\"crossOrigin\":\"anonymous\"}],[\"$\",\"link\",null,{\"href\":\"https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600\u0026display=block\",\"rel\":\"stylesheet\"}],[\"$\",\"script\",null,{\"dangerouslySetInnerHTML\":{\"__html\":\"!function(t){function e(){var e=this||self;e.globalThis=e,delete t.prototype._T_}\\\"object\\\"!=typeof globalThis\u0026\u0026(this?e():(t.defineProperty(t.prototype,\\\"_T_\\\",{configurable:!0,get:e}),_T_))}(Object);\"}}],[\"$\",\"script\",null,{\"async\":true,\"src\":\"https://kit.fontawesome.com/2c15cc0cc7.js\",\"crossOrigin\":\"anonymous\"}]]}],[\"$\",\"body\",null,{\"className\":\"h-full w-full\",\"children\":[\"$\",\"$L10\",null,{\"children\":[\"$\",\"$L7\",null,{\"parallelRouterKey\":\"children\",\"segmentPath\":[\"children\"],\"error\":\"$undefined\",\"errorStyles\":\"$undefined\",\"errorScripts\":\"$undefined\",\"template\":[\"$\",\"$L9\",null,{}],\"templateStyles\":\"$undefined\",\"templateScripts\":\"$undefined\",\"notFound\":[[\"$\",\"title\",null,{\"children\":\"404: This page could not be found.\"}],[\"$\",\"div\",null,{\"style\":{\"fontFamily\":\"system-ui,\\\"Segoe UI\\\",Roboto,Helvetica,Arial,sans-serif,\\\"Apple Color Emoji\\\",\\\"Segoe UI Emoji\\\"\",\"height\":\"100vh\",\"textAlign\":\"center\",\"display\":\"flex\",\"flexDirection\":\"column\",\"alignItems\":\"center\",\"justifyContent\":\"center\"},\"children\":[\"$\",\"div\",null,{\"children\":[[\"$\",\"style\",null,{\"dangerouslySetInnerHTML\":{\"__html\":\"body{color:#000;background:#fff;margin:0}.next-error-h1{border-right:1px solid rgba(0,0,0,.3)}@media (prefers-color-scheme:dark){body{color:#fff;background:#000}.next-error-h1{border-right:1px solid rgba(255,255,255,.3)}}\"}}],[\"$\",\"h1\",null,{\"className\":\"next-error-h1\",\"style\":{\"display\":\"inline-block\",\"margin\":\"0 20px 0 0\",\"padding\":\"0 23px 0 0\",\"fontSize\":24,\"fontWeight\":500,\"verticalAlign\":\"top\",\"lineHeight\":\"49px\"},\"children\":\"404\"}],[\"$\",\"div\",null,{\"style\":{\"display\":\"inline-block\"},\"children\":[\"$\",\"h2\",null,{\"style\":{\"fontSize\":14,\"fontWeight\":400,\"lineHeight\":\"49px\",\"margin\":0},\"children\":\"This page could not be found.\"}]}]]}]}]],\"notFoundStyles\":[]}]}]}]]}]\n"])</script><script>self.__next_f.push([1,"d:[[\"$\",\"meta\",\"0\",{\"name\":\"viewport\",\"content\":\"width=device-width, initial-scale=1\"}],[\"$\",\"meta\",\"1\",{\"charSet\":\"utf-8\"}],[\"$\",\"title\",\"2\",{\"children\":\"Audio Transcription Tool\"}],[\"$\",\"meta\",\"3\",{\"name\":\"description\",\"content\":\"https://ai-audio-transcriber-and-su-460.created.app\"}],[\"$\",\"meta\",\"4\",{\"property\":\"og:title\",\"content\":\"Audio Transcription Tool\"}],[\"$\",\"meta\",\"5\",{\"property\":\"og:description\",\"content\":\"https://ai-audio-transcriber-and-su-460.created.app\"}],[\"$\",\"meta\",\"6\",{\"property\":\"og:site_name\",\"content\":\"AI Audio Transcriber and Summarizer\"}],[\"$\",\"meta\",\"7\",{\"property\":\"og:image:type\",\"content\":\"image/png\"}],[\"$\",\"meta\",\"8\",{\"property\":\"og:image\",\"content\":\"https://ai-audio-transcriber-and-su-460.created.app/link/ai-audio-transcriber-and-su-460/opengraph-image?fe7ec8d988bc4631\"}],[\"$\",\"meta\",\"9\",{\"property\":\"og:type\",\"content\":\"website\"}],[\"$\",\"meta\",\"10\",{\"name\":\"twitter:card\",\"content\":\"summary_large_image\"}],[\"$\",\"meta\",\"11\",{\"name\":\"twitter:title\",\"content\":\"Audio Transcription Tool\"}],[\"$\",\"meta\",\"12\",{\"name\":\"twitter:description\",\"content\":\"https://ai-audio-transcriber-and-su-460.created.app\"}],[\"$\",\"meta\",\"13\",{\"name\":\"twitter:image:type\",\"content\":\"image/png\"}],[\"$\",\"meta\",\"14\",{\"name\":\"twitter:image\",\"content\":\"https://ai-audio-transcriber-and-su-460.created.app/link/ai-audio-transcriber-and-su-460/twitter-image?fe7ec8d988bc4631\"}],[\"$\",\"meta\",\"15\",{\"name\":\"next-size-adjust\"}]]\n5:null\n"])</script><script>self.__next_f.push([1,"12:I[14397,[\"5343\",\"static/chunks/5343-137132f9c43132af.js\",\"8695\",\"static/chunks/8695-0c4f64fbb5ce8f16.js\",\"4035\",\"static/chunks/4035-5b13b6175d8c5dcb.js\",\"2077\",\"static/chunks/2077-35d8f3acd0798f7d.js\",\"1855\",\"static/chunks/1855-0f93fc355a7c3c9a.js\",\"7237\",\"static/chunks/7237-ce69457aa8101ef4.js\",\"2466\",\"static/chunks/2466-c2577d6b6a7244ca.js\",\"5169\",\"static/chunks/5169-bd9e3a29e4f266ab.js\",\"4511\",\"static/chunks/app/link/%5Bslug%5D/page-d895fc0f210568df.js\"],\"ErrorBoundary\"]\n13:I[81529,[\"5343\",\"static/chunks/5343-137132f9c43132af.js\",\"8695\",\"static/chunks/8695-0c4f64fbb5ce8f16.js\",\"4035\",\"static/chunks/4035-5b13b6175d8c5dcb.js\",\"2077\",\"static/chunks/2077-35d8f3acd0798f7d.js\",\"1855\",\"static/chunks/1855-0f93fc355a7c3c9a.js\",\"7237\",\"static/chunks/7237-ce69457aa8101ef4.js\",\"2466\",\"static/chunks/2466-c2577d6b6a7244ca.js\",\"5169\",\"static/chunks/5169-bd9e3a29e4f266ab.js\",\"4511\",\"static/chunks/app/link/%5Bslug%5D/page-d895fc0f210568df.js\"],\"AlertBox\"]\n14:I[95004,[\"5343\",\"static/chunks/5343-137132f9c43132af.js\",\"8695\",\"static/chunks/8695-0c4f64fbb5ce8f16.js\",\"4035\",\"static/chunks/4035-5b13b6175d8c5dcb.js\",\"2077\",\"static/chunks/2077-35d8f3acd0798f7d.js\",\"1855\",\"static/chunks/1855-0f93fc355a7c3c9a.js\",\"7237\",\"static/chunks/7237-ce69457aa8101ef4.js\",\"2466\",\"static/chunks/2466-c2577d6b6a7244ca.js\",\"5169\",\"static/chunks/5169-bd9e3a29e4f266ab.js\",\"4511\",\"static/chunks/app/link/%5Bslug%5D/page-d895fc0f210568df.js\"],\"default\"]\n16:I[77466,[\"5343\",\"static/chunks/5343-137132f9c43132af.js\",\"8695\",\"static/chunks/8695-0c4f64fbb5ce8f16.js\",\"4035\",\"static/chunks/4035-5b13b6175d8c5dcb.js\",\"2077\",\"static/chunks/2077-35d8f3acd0798f7d.js\",\"1855\",\"static/chunks/1855-0f93fc355a7c3c9a.js\",\"7237\",\"static/chunks/7237-ce69457aa8101ef4.js\",\"2466\",\"static/chunks/2466-c2577d6b6a7244ca.js\",\"5169\",\"static/chunks/5169-bd9e3a29e4f266ab.js\",\"4511\",\"static/chunks/app/link/%5Bslug%5D/page-d895fc0f210568df.js\"],\"BailoutToCSR\"]\n17:I[38647,[\"5343\",\"static/chunks/5343-137132f9c43132af.js\",\"8695\",\"static/chunks/8695-0c4f64fbb5ce8f16.js\",\"4035\",\"static/chunks/40"])</script><script>self.__next_f.push([1,"35-5b13b6175d8c5dcb.js\",\"2077\",\"static/chunks/2077-35d8f3acd0798f7d.js\",\"1855\",\"static/chunks/1855-0f93fc355a7c3c9a.js\",\"7237\",\"static/chunks/7237-ce69457aa8101ef4.js\",\"2466\",\"static/chunks/2466-c2577d6b6a7244ca.js\",\"5169\",\"static/chunks/5169-bd9e3a29e4f266ab.js\",\"4511\",\"static/chunks/app/link/%5Bslug%5D/page-d895fc0f210568df.js\"],\"default\"]\n11:T5749,"])</script><script>self.__next_f.push([1,"*, ::before, ::after {\n  --tw-border-spacing-x: 0;\n  --tw-border-spacing-y: 0;\n  --tw-translate-x: 0;\n  --tw-translate-y: 0;\n  --tw-rotate: 0;\n  --tw-skew-x: 0;\n  --tw-skew-y: 0;\n  --tw-scale-x: 1;\n  --tw-scale-y: 1;\n  --tw-pan-x:  ;\n  --tw-pan-y:  ;\n  --tw-pinch-zoom:  ;\n  --tw-scroll-snap-strictness: proximity;\n  --tw-gradient-from-position:  ;\n  --tw-gradient-via-position:  ;\n  --tw-gradient-to-position:  ;\n  --tw-ordinal:  ;\n  --tw-slashed-zero:  ;\n  --tw-numeric-figure:  ;\n  --tw-numeric-spacing:  ;\n  --tw-numeric-fraction:  ;\n  --tw-ring-inset:  ;\n  --tw-ring-offset-width: 0px;\n  --tw-ring-offset-color: #fff;\n  --tw-ring-color: rgb(59 130 246 / 0.5);\n  --tw-ring-offset-shadow: 0 0 #0000;\n  --tw-ring-shadow: 0 0 #0000;\n  --tw-shadow: 0 0 #0000;\n  --tw-shadow-colored: 0 0 #0000;\n  --tw-blur:  ;\n  --tw-brightness:  ;\n  --tw-contrast:  ;\n  --tw-grayscale:  ;\n  --tw-hue-rotate:  ;\n  --tw-invert:  ;\n  --tw-saturate:  ;\n  --tw-sepia:  ;\n  --tw-drop-shadow:  ;\n  --tw-backdrop-blur:  ;\n  --tw-backdrop-brightness:  ;\n  --tw-backdrop-contrast:  ;\n  --tw-backdrop-grayscale:  ;\n  --tw-backdrop-hue-rotate:  ;\n  --tw-backdrop-invert:  ;\n  --tw-backdrop-opacity:  ;\n  --tw-backdrop-saturate:  ;\n  --tw-backdrop-sepia:  ;\n  --tw-contain-size:  ;\n  --tw-contain-layout:  ;\n  --tw-contain-paint:  ;\n  --tw-contain-style:  ;\n}\n\n::backdrop {\n  --tw-border-spacing-x: 0;\n  --tw-border-spacing-y: 0;\n  --tw-translate-x: 0;\n  --tw-translate-y: 0;\n  --tw-rotate: 0;\n  --tw-skew-x: 0;\n  --tw-skew-y: 0;\n  --tw-scale-x: 1;\n  --tw-scale-y: 1;\n  --tw-pan-x:  ;\n  --tw-pan-y:  ;\n  --tw-pinch-zoom:  ;\n  --tw-scroll-snap-strictness: proximity;\n  --tw-gradient-from-position:  ;\n  --tw-gradient-via-position:  ;\n  --tw-gradient-to-position:  ;\n  --tw-ordinal:  ;\n  --tw-slashed-zero:  ;\n  --tw-numeric-figure:  ;\n  --tw-numeric-spacing:  ;\n  --tw-numeric-fraction:  ;\n  --tw-ring-inset:  ;\n  --tw-ring-offset-width: 0px;\n  --tw-ring-offset-color: #fff;\n  --tw-ring-color: rgb(59 130 246 / 0.5);\n  --tw-ring-offset-shadow: 0 0 #0000;\n  --tw-ring-shadow: 0 0 #0000;\n  --tw-shadow: 0 0 #0000;\n  --tw-shadow-colored: 0 0 #0000;\n  --tw-blur:  ;\n  --tw-brightness:  ;\n  --tw-contrast:  ;\n  --tw-grayscale:  ;\n  --tw-hue-rotate:  ;\n  --tw-invert:  ;\n  --tw-saturate:  ;\n  --tw-sepia:  ;\n  --tw-drop-shadow:  ;\n  --tw-backdrop-blur:  ;\n  --tw-backdrop-brightness:  ;\n  --tw-backdrop-contrast:  ;\n  --tw-backdrop-grayscale:  ;\n  --tw-backdrop-hue-rotate:  ;\n  --tw-backdrop-invert:  ;\n  --tw-backdrop-opacity:  ;\n  --tw-backdrop-saturate:  ;\n  --tw-backdrop-sepia:  ;\n  --tw-contain-size:  ;\n  --tw-contain-layout:  ;\n  --tw-contain-paint:  ;\n  --tw-contain-style:  ;\n}/*\n! tailwindcss v3.4.14 | MIT License | https://tailwindcss.com\n*//*\n1. Prevent padding and border from affecting element width. (https://github.com/mozdevs/cssremedy/issues/4)\n2. Allow adding a border to an element by just adding a border-width. (https://github.com/tailwindcss/tailwindcss/pull/116)\n*/\n\n*,\n::before,\n::after {\n  box-sizing: border-box; /* 1 */\n  border-width: 0; /* 2 */\n  border-style: solid; /* 2 */\n  border-color: #e5e7eb; /* 2 */\n}\n\n::before,\n::after {\n  --tw-content: '';\n}\n\n/*\n1. Use a consistent sensible line-height in all browsers.\n2. Prevent adjustments of font size after orientation changes in iOS.\n3. Use a more readable tab size.\n4. Use the user's configured `sans` font-family by default.\n5. Use the user's configured `sans` font-feature-settings by default.\n6. Use the user's configured `sans` font-variation-settings by default.\n7. Disable tap highlights on iOS\n*/\n\nhtml,\n:host {\n  line-height: 1.5; /* 1 */\n  -webkit-text-size-adjust: 100%; /* 2 */\n  -moz-tab-size: 4; /* 3 */\n  tab-size: 4; /* 3 */\n  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, \"Helvetica Neue\", Arial, \"Noto Sans\", sans-serif, \"Apple Color Emoji\", \"Segoe UI Emoji\", \"Segoe UI Symbol\", \"Noto Color Emoji\"; /* 4 */\n  font-feature-settings: normal; /* 5 */\n  font-variation-settings: normal; /* 6 */\n  -webkit-tap-highlight-color: transparent; /* 7 */\n}\n\n/*\n1. Remove the margin in all browsers.\n2. Inherit line-height from `html` so users can set them as a class directly on the `html` element.\n*/\n\nbody {\n  margin: 0; /* 1 */\n  line-height: inherit; /* 2 */\n}\n\n/*\n1. Add the correct height in Firefox.\n2. Correct the inheritance of border color in Firefox. (https://bugzilla.mozilla.org/show_bug.cgi?id=190655)\n3. Ensure horizontal rules are visible by default.\n*/\n\nhr {\n  height: 0; /* 1 */\n  color: inherit; /* 2 */\n  border-top-width: 1px; /* 3 */\n}\n\n/*\nAdd the correct text decoration in Chrome, Edge, and Safari.\n*/\n\nabbr:where([title]) {\n  text-decoration: underline dotted;\n}\n\n/*\nRemove the default font size and weight for headings.\n*/\n\nh1,\nh2,\nh3,\nh4,\nh5,\nh6 {\n  font-size: inherit;\n  font-weight: inherit;\n}\n\n/*\nReset links to optimize for opt-in styling instead of opt-out.\n*/\n\na {\n  color: inherit;\n  text-decoration: inherit;\n}\n\n/*\nAdd the correct font weight in Edge and Safari.\n*/\n\nb,\nstrong {\n  font-weight: bolder;\n}\n\n/*\n1. Use the user's configured `mono` font-family by default.\n2. Use the user's configured `mono` font-feature-settings by default.\n3. Use the user's configured `mono` font-variation-settings by default.\n4. Correct the odd `em` font sizing in all browsers.\n*/\n\ncode,\nkbd,\nsamp,\npre {\n  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, \"Liberation Mono\", \"Courier New\", monospace; /* 1 */\n  font-feature-settings: normal; /* 2 */\n  font-variation-settings: normal; /* 3 */\n  font-size: 1em; /* 4 */\n}\n\n/*\nAdd the correct font size in all browsers.\n*/\n\nsmall {\n  font-size: 80%;\n}\n\n/*\nPrevent `sub` and `sup` elements from affecting the line height in all browsers.\n*/\n\nsub,\nsup {\n  font-size: 75%;\n  line-height: 0;\n  position: relative;\n  vertical-align: baseline;\n}\n\nsub {\n  bottom: -0.25em;\n}\n\nsup {\n  top: -0.5em;\n}\n\n/*\n1. Remove text indentation from table contents in Chrome and Safari. (https://bugs.chromium.org/p/chromium/issues/detail?id=999088, https://bugs.webkit.org/show_bug.cgi?id=201297)\n2. Correct table border color inheritance in all Chrome and Safari. (https://bugs.chromium.org/p/chromium/issues/detail?id=935729, https://bugs.webkit.org/show_bug.cgi?id=195016)\n3. Remove gaps between table borders by default.\n*/\n\ntable {\n  text-indent: 0; /* 1 */\n  border-color: inherit; /* 2 */\n  border-collapse: collapse; /* 3 */\n}\n\n/*\n1. Change the font styles in all browsers.\n2. Remove the margin in Firefox and Safari.\n3. Remove default padding in all browsers.\n*/\n\nbutton,\ninput,\noptgroup,\nselect,\ntextarea {\n  font-family: inherit; /* 1 */\n  font-feature-settings: inherit; /* 1 */\n  font-variation-settings: inherit; /* 1 */\n  font-size: 100%; /* 1 */\n  font-weight: inherit; /* 1 */\n  line-height: inherit; /* 1 */\n  letter-spacing: inherit; /* 1 */\n  color: inherit; /* 1 */\n  margin: 0; /* 2 */\n  padding: 0; /* 3 */\n}\n\n/*\nRemove the inheritance of text transform in Edge and Firefox.\n*/\n\nbutton,\nselect {\n  text-transform: none;\n}\n\n/*\n1. Correct the inability to style clickable types in iOS and Safari.\n2. Remove default button styles.\n*/\n\nbutton,\ninput:where([type='button']),\ninput:where([type='reset']),\ninput:where([type='submit']) {\n  -webkit-appearance: button; /* 1 */\n  background-color: transparent; /* 2 */\n  background-image: none; /* 2 */\n}\n\n/*\nUse the modern Firefox focus style for all focusable elements.\n*/\n\n:-moz-focusring {\n  outline: auto;\n}\n\n/*\nRemove the additional `:invalid` styles in Firefox. (https://github.com/mozilla/gecko-dev/blob/2f9eacd9d3d995c937b4251a5557d95d494c9be1/layout/style/res/forms.css#L728-L737)\n*/\n\n:-moz-ui-invalid {\n  box-shadow: none;\n}\n\n/*\nAdd the correct vertical alignment in Chrome and Firefox.\n*/\n\nprogress {\n  vertical-align: baseline;\n}\n\n/*\nCorrect the cursor style of increment and decrement buttons in Safari.\n*/\n\n::-webkit-inner-spin-button,\n::-webkit-outer-spin-button {\n  height: auto;\n}\n\n/*\n1. Correct the odd appearance in Chrome and Safari.\n2. Correct the outline style in Safari.\n*/\n\n[type='search'] {\n  -webkit-appearance: textfield; /* 1 */\n  outline-offset: -2px; /* 2 */\n}\n\n/*\nRemove the inner padding in Chrome and Safari on macOS.\n*/\n\n::-webkit-search-decoration {\n  -webkit-appearance: none;\n}\n\n/*\n1. Correct the inability to style clickable types in iOS and Safari.\n2. Change font properties to `inherit` in Safari.\n*/\n\n::-webkit-file-upload-button {\n  -webkit-appearance: button; /* 1 */\n  font: inherit; /* 2 */\n}\n\n/*\nAdd the correct display in Chrome and Safari.\n*/\n\nsummary {\n  display: list-item;\n}\n\n/*\nRemoves the default spacing and border for appropriate elements.\n*/\n\nblockquote,\ndl,\ndd,\nh1,\nh2,\nh3,\nh4,\nh5,\nh6,\nhr,\nfigure,\np,\npre {\n  margin: 0;\n}\n\nfieldset {\n  margin: 0;\n  padding: 0;\n}\n\nlegend {\n  padding: 0;\n}\n\nol,\nul,\nmenu {\n  list-style: none;\n  margin: 0;\n  padding: 0;\n}\n\n/*\nReset default styling for dialogs.\n*/\ndialog {\n  padding: 0;\n}\n\n/*\nPrevent resizing textareas horizontally by default.\n*/\n\ntextarea {\n  resize: vertical;\n}\n\n/*\n1. Reset the default placeholder opacity in Firefox. (https://github.com/tailwindlabs/tailwindcss/issues/3300)\n2. Set the default placeholder color to the user's configured gray 400 color.\n*/\n\ninput::placeholder,\ntextarea::placeholder {\n  opacity: 1; /* 1 */\n  color: #9ca3af; /* 2 */\n}\n\n/*\nSet the default cursor for buttons.\n*/\n\nbutton,\n[role=\"button\"] {\n  cursor: pointer;\n}\n\n/*\nMake sure disabled buttons don't get the pointer cursor.\n*/\n:disabled {\n  cursor: default;\n}\n\n/*\n1. Make replaced elements `display: block` by default. (https://github.com/mozdevs/cssremedy/issues/14)\n2. Add `vertical-align: middle` to align replaced elements more sensibly by default. (https://github.com/jensimmons/cssremedy/issues/14#issuecomment-634934210)\n   This can trigger a poorly considered lint error in some tools but is included by design.\n*/\n\nimg,\nsvg,\nvideo,\ncanvas,\naudio,\niframe,\nembed,\nobject {\n  display: block; /* 1 */\n  vertical-align: middle; /* 2 */\n}\n\n/*\nConstrain images and videos to the parent width and preserve their intrinsic aspect ratio. (https://github.com/mozdevs/cssremedy/issues/14)\n*/\n\nimg,\nvideo {\n  max-width: 100%;\n  height: auto;\n}\n\n/* Make elements with the HTML hidden attribute stay hidden by default */\n[hidden]:where(:not([hidden=\"until-found\"])) {\n  display: none;\n}\n  .invisible {\n  visibility: hidden;\n}\n  .absolute {\n  position: absolute;\n}\n  .relative {\n  position: relative;\n}\n  .left-3 {\n  left: 0.75rem;\n}\n  .right-0 {\n  right: 0px;\n}\n  .top-3 {\n  top: 0.75rem;\n}\n  .z-10 {\n  z-index: 10;\n}\n  .mx-1 {\n  margin-left: 0.25rem;\n  margin-right: 0.25rem;\n}\n  .mx-auto {\n  margin-left: auto;\n  margin-right: auto;\n}\n  .mb-1 {\n  margin-bottom: 0.25rem;\n}\n  .mb-2 {\n  margin-bottom: 0.5rem;\n}\n  .mb-3 {\n  margin-bottom: 0.75rem;\n}\n  .mb-4 {\n  margin-bottom: 1rem;\n}\n  .mb-6 {\n  margin-bottom: 1.5rem;\n}\n  .ml-2 {\n  margin-left: 0.5rem;\n}\n  .ml-auto {\n  margin-left: auto;\n}\n  .mr-1 {\n  margin-right: 0.25rem;\n}\n  .mr-2 {\n  margin-right: 0.5rem;\n}\n  .mt-1 {\n  margin-top: 0.25rem;\n}\n  .mt-2 {\n  margin-top: 0.5rem;\n}\n  .mt-3 {\n  margin-top: 0.75rem;\n}\n  .block {\n  display: block;\n}\n  .flex {\n  display: flex;\n}\n  .grid {\n  display: grid;\n}\n  .hidden {\n  display: none;\n}\n  .h-2 {\n  height: 0.5rem;\n}\n  .h-24 {\n  height: 6rem;\n}\n  .h-5 {\n  height: 1.25rem;\n}\n  .h-8 {\n  height: 2rem;\n}\n  .max-h-96 {\n  max-height: 24rem;\n}\n  .max-h-\\[200px\\] {\n  max-height: 200px;\n}\n  .min-h-\\[120px\\] {\n  min-height: 120px;\n}\n  .min-h-screen {\n  min-height: 100vh;\n}\n  .w-2 {\n  width: 0.5rem;\n}\n  .w-24 {\n  width: 6rem;\n}\n  .w-48 {\n  width: 12rem;\n}\n  .w-5 {\n  width: 1.25rem;\n}\n  .w-8 {\n  width: 2rem;\n}\n  .w-full {\n  width: 100%;\n}\n  .min-w-0 {\n  min-width: 0px;\n}\n  .max-w-7xl {\n  max-width: 80rem;\n}\n  .flex-1 {\n  flex: 1 1 0%;\n}\n  @keyframes pulse {\n\n  0%,100% {\n    opacity: 1;\n  }\n\n  50% {\n    opacity: .5;\n  }\n}\n  .animate-pulse {\n  animation: pulse 2s cubic-bezier(0.4,0,0.6,1) infinite;\n}\n  @keyframes spin {\n\n  from {\n    transform: rotate(0deg);\n  }\n\n  to {\n    transform: rotate(360deg);\n  }\n}\n  .animate-spin {\n  animation: spin 1s linear infinite;\n}\n  .cursor-pointer {\n  cursor: pointer;\n}\n  .grid-cols-1 {\n  grid-template-columns: repeat(1, minmax(0, 1fr));\n}\n  .flex-col {\n  flex-direction: column;\n}\n  .items-center {\n  align-items: center;\n}\n  .justify-center {\n  justify-content: center;\n}\n  .justify-between {\n  justify-content: space-between;\n}\n  .gap-8 {\n  gap: 2rem;\n}\n  .space-x-2 \u003e :not([hidden]) ~ :not([hidden]) {\n  --tw-space-x-reverse: 0;\n  margin-right: calc(0.5rem * var(--tw-space-x-reverse));\n  margin-left: calc(0.5rem * calc(1 - var(--tw-space-x-reverse)));\n}\n  .space-x-3 \u003e :not([hidden]) ~ :not([hidden]) {\n  --tw-space-x-reverse: 0;\n  margin-right: calc(0.75rem * var(--tw-space-x-reverse));\n  margin-left: calc(0.75rem * calc(1 - var(--tw-space-x-reverse)));\n}\n  .space-x-4 \u003e :not([hidden]) ~ :not([hidden]) {\n  --tw-space-x-reverse: 0;\n  margin-right: calc(1rem * var(--tw-space-x-reverse));\n  margin-left: calc(1rem * calc(1 - var(--tw-space-x-reverse)));\n}\n  .space-y-2 \u003e :not([hidden]) ~ :not([hidden]) {\n  --tw-space-y-reverse: 0;\n  margin-top: calc(0.5rem * calc(1 - var(--tw-space-y-reverse)));\n  margin-bottom: calc(0.5rem * var(--tw-space-y-reverse));\n}\n  .space-y-4 \u003e :not([hidden]) ~ :not([hidden]) {\n  --tw-space-y-reverse: 0;\n  margin-top: calc(1rem * calc(1 - var(--tw-space-y-reverse)));\n  margin-bottom: calc(1rem * var(--tw-space-y-reverse));\n}\n  .space-y-6 \u003e :not([hidden]) ~ :not([hidden]) {\n  --tw-space-y-reverse: 0;\n  margin-top: calc(1.5rem * calc(1 - var(--tw-space-y-reverse)));\n  margin-bottom: calc(1.5rem * var(--tw-space-y-reverse));\n}\n  .overflow-y-auto {\n  overflow-y: auto;\n}\n  .truncate {\n  overflow: hidden;\n  text-overflow: ellipsis;\n  white-space: nowrap;\n}\n  .whitespace-pre-wrap {\n  white-space: pre-wrap;\n}\n  .rounded {\n  border-radius: 0.25rem;\n}\n  .rounded-full {\n  border-radius: 9999px;\n}\n  .rounded-lg {\n  border-radius: 0.5rem;\n}\n  .rounded-md {\n  border-radius: 0.375rem;\n}\n  .rounded-xl {\n  border-radius: 0.75rem;\n}\n  .rounded-b-lg {\n  border-bottom-right-radius: 0.5rem;\n  border-bottom-left-radius: 0.5rem;\n}\n  .rounded-t-lg {\n  border-top-left-radius: 0.5rem;\n  border-top-right-radius: 0.5rem;\n}\n  .border {\n  border-width: 1px;\n}\n  .border-2 {\n  border-width: 2px;\n}\n  .border-b {\n  border-bottom-width: 1px;\n}\n  .border-b-2 {\n  border-bottom-width: 2px;\n}\n  .border-t {\n  border-top-width: 1px;\n}\n  .border-dashed {\n  border-style: dashed;\n}\n  .border-blue-500 {\n  --tw-border-opacity: 1;\n  border-color: rgb(59 130 246 / var(--tw-border-opacity));\n}\n  .border-blue-600 {\n  --tw-border-opacity: 1;\n  border-color: rgb(37 99 235 / var(--tw-border-opacity));\n}\n  .border-gray-200 {\n  --tw-border-opacity: 1;\n  border-color: rgb(229 231 235 / var(--tw-border-opacity));\n}\n  .border-gray-300 {\n  --tw-border-opacity: 1;\n  border-color: rgb(209 213 219 / var(--tw-border-opacity));\n}\n  .border-green-200 {\n  --tw-border-opacity: 1;\n  border-color: rgb(187 247 208 / var(--tw-border-opacity));\n}\n  .bg-blue-50 {\n  --tw-bg-opacity: 1;\n  background-color: rgb(239 246 255 / var(--tw-bg-opacity));\n}\n  .bg-blue-500 {\n  --tw-bg-opacity: 1;\n  background-color: rgb(59 130 246 / var(--tw-bg-opacity));\n}\n  .bg-blue-600 {\n  --tw-bg-opacity: 1;\n  background-color: rgb(37 99 235 / var(--tw-bg-opacity));\n}\n  .bg-gray-100 {\n  --tw-bg-opacity: 1;\n  background-color: rgb(243 244 246 / var(--tw-bg-opacity));\n}\n  .bg-gray-50 {\n  --tw-bg-opacity: 1;\n  background-color: rgb(249 250 251 / var(--tw-bg-opacity));\n}\n  .bg-green-100 {\n  --tw-bg-opacity: 1;\n  background-color: rgb(220 252 231 / var(--tw-bg-opacity));\n}\n  .bg-green-50 {\n  --tw-bg-opacity: 1;\n  background-color: rgb(240 253 244 / var(--tw-bg-opacity));\n}\n  .bg-green-600 {\n  --tw-bg-opacity: 1;\n  background-color: rgb(22 163 74 / var(--tw-bg-opacity));\n}\n  .bg-red-100 {\n  --tw-bg-opacity: 1;\n  background-color: rgb(254 226 226 / var(--tw-bg-opacity));\n}\n  .bg-red-500 {\n  --tw-bg-opacity: 1;\n  background-color: rgb(239 68 68 / var(--tw-bg-opacity));\n}\n  .bg-white {\n  --tw-bg-opacity: 1;\n  background-color: rgb(255 255 255 / var(--tw-bg-opacity));\n}\n  .p-1 {\n  padding: 0.25rem;\n}\n  .p-12 {\n  padding: 3rem;\n}\n  .p-3 {\n  padding: 0.75rem;\n}\n  .p-4 {\n  padding: 1rem;\n}\n  .p-6 {\n  padding: 1.5rem;\n}\n  .px-2 {\n  padding-left: 0.5rem;\n  padding-right: 0.5rem;\n}\n  .px-3 {\n  padding-left: 0.75rem;\n  padding-right: 0.75rem;\n}\n  .px-4 {\n  padding-left: 1rem;\n  padding-right: 1rem;\n}\n  .py-1 {\n  padding-top: 0.25rem;\n  padding-bottom: 0.25rem;\n}\n  .py-2 {\n  padding-top: 0.5rem;\n  padding-bottom: 0.5rem;\n}\n  .py-4 {\n  padding-top: 1rem;\n  padding-bottom: 1rem;\n}\n  .py-8 {\n  padding-top: 2rem;\n  padding-bottom: 2rem;\n}\n  .pl-10 {\n  padding-left: 2.5rem;\n}\n  .pr-4 {\n  padding-right: 1rem;\n}\n  .pt-6 {\n  padding-top: 1.5rem;\n}\n  .text-left {\n  text-align: left;\n}\n  .text-center {\n  text-align: center;\n}\n  .text-2xl {\n  font-size: 1.5rem;\n  line-height: 2rem;\n}\n  .text-3xl {\n  font-size: 1.875rem;\n  line-height: 2.25rem;\n}\n  .text-6xl {\n  font-size: 3.75rem;\n  line-height: 1;\n}\n  .text-lg {\n  font-size: 1.125rem;\n  line-height: 1.75rem;\n}\n  .text-sm {\n  font-size: 0.875rem;\n  line-height: 1.25rem;\n}\n  .text-xl {\n  font-size: 1.25rem;\n  line-height: 1.75rem;\n}\n  .text-xs {\n  font-size: 0.75rem;\n  line-height: 1rem;\n}\n  .font-bold {\n  font-weight: 700;\n}\n  .font-medium {\n  font-weight: 500;\n}\n  .font-semibold {\n  font-weight: 600;\n}\n  .italic {\n  font-style: italic;\n}\n  .leading-relaxed {\n  line-height: 1.625;\n}\n  .text-blue-600 {\n  --tw-text-opacity: 1;\n  color: rgb(37 99 235 / var(--tw-text-opacity));\n}\n  .text-gray-400 {\n  --tw-text-opacity: 1;\n  color: rgb(156 163 175 / var(--tw-text-opacity));\n}\n  .text-gray-500 {\n  --tw-text-opacity: 1;\n  color: rgb(107 114 128 / var(--tw-text-opacity));\n}\n  .text-gray-600 {\n  --tw-text-opacity: 1;\n  color: rgb(75 85 99 / var(--tw-text-opacity));\n}\n  .text-gray-700 {\n  --tw-text-opacity: 1;\n  color: rgb(55 65 81 / var(--tw-text-opacity));\n}\n  .text-gray-800 {\n  --tw-text-opacity: 1;\n  color: rgb(31 41 55 / var(--tw-text-opacity));\n}\n  .text-gray-900 {\n  --tw-text-opacity: 1;\n  color: rgb(17 24 39 / var(--tw-text-opacity));\n}\n  .text-green-700 {\n  --tw-text-opacity: 1;\n  color: rgb(21 128 61 / var(--tw-text-opacity));\n}\n  .text-green-800 {\n  --tw-text-opacity: 1;\n  color: rgb(22 101 52 / var(--tw-text-opacity));\n}\n  .text-green-900 {\n  --tw-text-opacity: 1;\n  color: rgb(20 83 45 / var(--tw-text-opacity));\n}\n  .text-red-700 {\n  --tw-text-opacity: 1;\n  color: rgb(185 28 28 / var(--tw-text-opacity));\n}\n  .text-white {\n  --tw-text-opacity: 1;\n  color: rgb(255 255 255 / var(--tw-text-opacity));\n}\n  .opacity-0 {\n  opacity: 0;\n}\n  .shadow-lg {\n  --tw-shadow: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -4px rgba(0,0,0,0.1);\n  --tw-shadow-colored: 0 10px 15px -3px var(--tw-shadow-color), 0 4px 6px -4px var(--tw-shadow-color);\n  box-shadow: var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow);\n}\n  .shadow-sm {\n  --tw-shadow: 0 1px 2px 0 rgba(0,0,0,0.05);\n  --tw-shadow-colored: 0 1px 2px 0 var(--tw-shadow-color);\n  box-shadow: var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow);\n}\n  .filter {\n  filter: var(--tw-blur) var(--tw-brightness) var(--tw-contrast) var(--tw-grayscale) var(--tw-hue-rotate) var(--tw-invert) var(--tw-saturate) var(--tw-sepia) var(--tw-drop-shadow);\n}\n  .transition-all {\n  transition-property: all;\n  transition-timing-function: cubic-bezier(0.4,0,0.2,1);\n  transition-duration: 150ms;\n}\n  .transition-colors {\n  transition-property: color,background-color,border-color,text-decoration-color,fill,stroke;\n  transition-timing-function: cubic-bezier(0.4,0,0.2,1);\n  transition-duration: 150ms;\n}\n  .duration-200 {\n  transition-duration: 200ms;\n}\n  .duration-300 {\n  transition-duration: 300ms;\n}\n  .hover\\:border-blue-400:hover {\n  --tw-border-opacity: 1;\n  border-color: rgb(96 165 250 / var(--tw-border-opacity));\n}\n  .hover\\:border-gray-300:hover {\n  --tw-border-opacity: 1;\n  border-color: rgb(209 213 219 / var(--tw-border-opacity));\n}\n  .hover\\:bg-blue-600:hover {\n  --tw-bg-opacity: 1;\n  background-color: rgb(37 99 235 / var(--tw-bg-opacity));\n}\n  .hover\\:bg-blue-700:hover {\n  --tw-bg-opacity: 1;\n  background-color: rgb(29 78 216 / var(--tw-bg-opacity));\n}\n  .hover\\:bg-gray-50:hover {\n  --tw-bg-opacity: 1;\n  background-color: rgb(249 250 251 / var(--tw-bg-opacity));\n}\n  .hover\\:bg-green-200:hover {\n  --tw-bg-opacity: 1;\n  background-color: rgb(187 247 208 / var(--tw-bg-opacity));\n}\n  .hover\\:bg-green-700:hover {\n  --tw-bg-opacity: 1;\n  background-color: rgb(21 128 61 / var(--tw-bg-opacity));\n}\n  .hover\\:bg-red-200:hover {\n  --tw-bg-opacity: 1;\n  background-color: rgb(254 202 202 / var(--tw-bg-opacity));\n}\n  .hover\\:text-gray-700:hover {\n  --tw-text-opacity: 1;\n  color: rgb(55 65 81 / var(--tw-text-opacity));\n}\n  .hover\\:text-gray-900:hover {\n  --tw-text-opacity: 1;\n  color: rgb(17 24 39 / var(--tw-text-opacity));\n}\n  .hover\\:text-red-500:hover {\n  --tw-text-opacity: 1;\n  color: rgb(239 68 68 / var(--tw-text-opacity));\n}\n  .hover\\:underline:hover {\n  text-decoration-line: underline;\n}\n  .focus\\:border-transparent:focus {\n  border-color: transparent;\n}\n  .focus\\:outline-none:focus {\n  outline: 2px solid transparent;\n  outline-offset: 2px;\n}\n  .focus\\:ring-2:focus {\n  --tw-ring-offset-shadow: var(--tw-ring-inset) 0 0 0 var(--tw-ring-offset-width) var(--tw-ring-offset-color);\n  --tw-ring-shadow: var(--tw-ring-inset) 0 0 0 calc(2px + var(--tw-ring-offset-width)) var(--tw-ring-color);\n  box-shadow: var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow, 0 0 #0000);\n}\n  .focus\\:ring-blue-500:focus {\n  --tw-ring-opacity: 1;\n  --tw-ring-color: rgb(59 130 246 / var(--tw-ring-opacity));\n}\n  .disabled\\:opacity-50:disabled {\n  opacity: 0.5;\n}\n  .group:hover .group-hover\\:visible {\n  visibility: visible;\n}\n  .group:hover .group-hover\\:opacity-100 {\n  opacity: 1;\n}\n  @media (min-width: 640px) {\n\n  .sm\\:px-6 {\n    padding-left: 1.5rem;\n    padding-right: 1.5rem;\n  }\n}\n  @media (min-width: 1024px) {\n\n  .lg\\:col-span-1 {\n    grid-column: span 1 / span 1;\n  }\n\n  .lg\\:col-span-2 {\n    grid-column: span 2 / span 2;\n  }\n\n  .lg\\:grid-cols-3 {\n    grid-template-columns: repeat(3, minmax(0, 1fr));\n  }\n\n  .lg\\:px-8 {\n    padding-left: 2rem;\n    padding-right: 2rem;\n  }\n}\n"])</script><script>self.__next_f.push([1,"15:Tc7e5,"])</script><script>self.__next_f.push([1,"function MainComponent() {\n    const [isRecording, setIsRecording] = React.useState(false);\n    const [mediaRecorder, setMediaRecorder] = React.useState(null);\n    const [audioChunks, setAudioChunks] = React.useState([]);\n    const [transcriptions, setTranscriptions] = React.useState([]);\n    const [currentTranscription, setCurrentTranscription] = React.useState(\"\");\n    const [isTranscribing, setIsTranscribing] = React.useState(false);\n    const [selectedFile, setSelectedFile] = React.useState(null);\n    const [searchQuery, setSearchQuery] = React.useState(\"\");\n    const [selectedTranscription, setSelectedTranscription] = React.useState(null);\n    const [isSummarizing, setIsSummarizing] = React.useState(false);\n    const [audioSource, setAudioSource] = React.useState(\"microphone\");\n    const [speakerNames, setSpeakerNames] = React.useState({});\n    const [editingSpeaker, setEditingSpeaker] = React.useState(null);\n    const [activeTab, setActiveTab] = React.useState(\"record\");\n    // Live transcription states\n    const [isLiveTranscribing, setIsLiveTranscribing] = React.useState(false);\n    const [liveTranscription, setLiveTranscription] = React.useState(\"\");\n    const [liveMediaRecorder, setLiveMediaRecorder] = React.useState(null);\n    const [liveAudioChunks, setLiveAudioChunks] = React.useState([]);\n    const handleStreamResponse = useHandleStreamResponse({\n        onChunk: (chunk)=\u003esetCurrentTranscription((prev)=\u003eprev + chunk),\n        onFinish: (message)=\u003e{\n            setCurrentTranscription(\"\");\n            setIsTranscribing(false);\n        }\n    });\n    const getAudioConstraints = async (source)=\u003e{\n        try {\n            switch(source){\n                case \"microphone\":\n                    return {\n                        audio: {\n                            echoCancellation: true,\n                            noiseSuppression: true\n                        }\n                    };\n                case \"system\":\n                    // Try to get system audio (desktop capture)\n                    if (navigator.mediaDevices.getDisplayMedia) {\n                        return {\n                            audio: true,\n                            video: false\n                        };\n                    } else {\n                        throw new Error(\"System audio capture not supported in this browser\");\n                    }\n                case \"both\":\n                    // This is more complex - we'll need to mix both streams\n                    const micStream = await navigator.mediaDevices.getUserMedia({\n                        audio: {\n                            echoCancellation: true,\n                            noiseSuppression: true\n                        }\n                    });\n                    let systemStream;\n                    try {\n                        systemStream = await navigator.mediaDevices.getDisplayMedia({\n                            audio: true,\n                            video: false\n                        });\n                    } catch (error) {\n                        console.warn(\"Could not capture system audio, using microphone only\");\n                        return micStream;\n                    }\n                    // Create audio context to mix streams\n                    const audioContext = new AudioContext();\n                    const micSource = audioContext.createMediaStreamSource(micStream);\n                    const systemSource = audioContext.createMediaStreamSource(systemStream);\n                    const destination = audioContext.createMediaStreamDestination();\n                    micSource.connect(destination);\n                    systemSource.connect(destination);\n                    return destination.stream;\n                default:\n                    return {\n                        audio: {\n                            echoCancellation: true,\n                            noiseSuppression: true\n                        }\n                    };\n            }\n        } catch (error) {\n            console.error(\"Error getting audio constraints:\", error);\n            throw error;\n        }\n    };\n    const startRecording = async ()=\u003e{\n        try {\n            let stream;\n            if (audioSource === \"system\") {\n                stream = await navigator.mediaDevices.getDisplayMedia({\n                    audio: true,\n                    video: false\n                });\n            } else if (audioSource === \"both\") {\n                stream = await getAudioConstraints(\"both\");\n            } else {\n                stream = await navigator.mediaDevices.getUserMedia({\n                    audio: {\n                        echoCancellation: true,\n                        noiseSuppression: true\n                    }\n                });\n            }\n            const recorder = new MediaRecorder(stream);\n            recorder.ondataavailable = (event)=\u003e{\n                if (event.data.size \u003e 0) {\n                    setAudioChunks((prev)=\u003e[\n                            ...prev,\n                            event.data\n                        ]);\n                }\n            };\n            recorder.onstop = ()=\u003e{\n                stream.getTracks().forEach((track)=\u003etrack.stop());\n            };\n            setMediaRecorder(recorder);\n            recorder.start(1000);\n            setIsRecording(true);\n        } catch (error) {\n            console.error(\"Error starting recording:\", error);\n            let errorMessage = \"Could not start recording. \";\n            if (audioSource === \"system\") {\n                errorMessage += \"System audio capture may not be supported or permission was denied.\";\n            } else if (audioSource === \"both\") {\n                errorMessage += \"Mixed audio capture failed. Please check permissions.\";\n            } else {\n                errorMessage += \"Please check microphone permissions.\";\n            }\n            alert(errorMessage);\n        }\n    };\n    const stopRecording = ()=\u003e{\n        if (mediaRecorder) {\n            mediaRecorder.stop();\n            setIsRecording(false);\n            processRecording();\n        }\n    };\n    const startLiveTranscription = async ()=\u003e{\n        try {\n            let stream;\n            if (audioSource === \"system\") {\n                stream = await navigator.mediaDevices.getDisplayMedia({\n                    audio: true,\n                    video: false\n                });\n            } else if (audioSource === \"both\") {\n                stream = await getAudioConstraints(\"both\");\n            } else {\n                stream = await navigator.mediaDevices.getUserMedia({\n                    audio: {\n                        echoCancellation: true,\n                        noiseSuppression: true\n                    }\n                });\n            }\n            const recorder = new MediaRecorder(stream);\n            recorder.ondataavailable = async (event)=\u003e{\n                if (event.data.size \u003e 0) {\n                    setLiveAudioChunks((prev)=\u003e[\n                            ...prev,\n                            event.data\n                        ]);\n                    // Process audio chunk for live transcription\n                    const audioBlob = new Blob([\n                        event.data\n                    ], {\n                        type: \"audio/wav\"\n                    });\n                    await processLiveAudioChunk(audioBlob);\n                }\n            };\n            recorder.onstop = ()=\u003e{\n                stream.getTracks().forEach((track)=\u003etrack.stop());\n            };\n            setLiveMediaRecorder(recorder);\n            recorder.start(2000); // Record in 2-second chunks for live processing\n            setIsLiveTranscribing(true);\n            setLiveTranscription(\"\");\n        } catch (error) {\n            console.error(\"Error starting live transcription:\", error);\n            alert(\"Could not start live transcription. Please check permissions.\");\n        }\n    };\n    const stopLiveTranscription = ()=\u003e{\n        if (liveMediaRecorder) {\n            liveMediaRecorder.stop();\n            setIsLiveTranscribing(false);\n            setLiveAudioChunks([]);\n        }\n    };\n    const processLiveAudioChunk = async (audioBlob)=\u003e{\n        try {\n            const reader = new FileReader();\n            reader.onload = async ()=\u003e{\n                const base64Audio = reader.result;\n                const response = await fetch(\"/api/transcribe\", {\n                    method: \"POST\",\n                    headers: {\n                        \"Content-Type\": \"application/json\"\n                    },\n                    body: JSON.stringify({\n                        audioData: base64Audio,\n                        fileName: \"live_chunk\",\n                        includeTimestamps: false,\n                        includeSpeakers: false,\n                        isLiveChunk: true\n                    })\n                });\n                if (response.ok) {\n                    const result = await response.json();\n                    if (result.transcription \u0026\u0026 result.transcription.trim()) {\n                        setLiveTranscription((prev)=\u003e{\n                            const newText = prev + \" \" + result.transcription.trim();\n                            // Keep only last 500 characters to prevent overflow\n                            return newText.length \u003e 500 ? \"...\" + newText.slice(-500) : newText;\n                        });\n                    }\n                }\n            };\n            reader.readAsDataURL(audioBlob);\n        } catch (error) {\n            console.error(\"Live transcription error:\", error);\n        }\n    };\n    const processRecording = async ()=\u003e{\n        if (audioChunks.length === 0) return;\n        const audioBlob = new Blob(audioChunks, {\n            type: \"audio/wav\"\n        });\n        setAudioChunks([]);\n        await transcribeAudio(audioBlob, `Recording ${new Date().toLocaleString()}`);\n    };\n    const transcribeAudio = async (audioBlob, fileName)=\u003e{\n        setIsTranscribing(true);\n        try {\n            const reader = new FileReader();\n            reader.onload = async ()=\u003e{\n                const base64Audio = reader.result;\n                const response = await fetch(\"/api/transcribe\", {\n                    method: \"POST\",\n                    headers: {\n                        \"Content-Type\": \"application/json\"\n                    },\n                    body: JSON.stringify({\n                        audioData: base64Audio,\n                        fileName: fileName,\n                        includeTimestamps: true,\n                        includeSpeakers: true\n                    })\n                });\n                if (!response.ok) {\n                    throw new Error(`Transcription API error: ${response.status}`);\n                }\n                const result = await response.json();\n                if (result.error) {\n                    throw new Error(result.error);\n                }\n                const newTranscription = {\n                    id: Date.now(),\n                    fileName: result.fileName,\n                    content: result.transcription,\n                    timestamp: result.timestamp,\n                    audioBlob,\n                    summary: null,\n                    speakers: result.speakers || extractSpeakers(result.transcription),\n                    duration: result.duration,\n                    language: result.language\n                };\n                setTranscriptions((prev)=\u003e[\n                        newTranscription,\n                        ...prev\n                    ]);\n                setSelectedTranscription(newTranscription);\n                setIsTranscribing(false);\n            };\n            reader.readAsDataURL(audioBlob);\n        } catch (error) {\n            console.error(\"Transcription error:\", error);\n            setIsTranscribing(false);\n            alert(`Error transcribing audio: ${error.message}`);\n        }\n    };\n    const extractSpeakers = (text)=\u003e{\n        const speakerMatches = text.match(/Speaker \\d+/g) || [];\n        return [\n            ...new Set(speakerMatches)\n        ];\n    };\n    const handleFileUpload = async (event)=\u003e{\n        const file = event.target.files[0];\n        if (!file) return;\n        if (!file.type.startsWith(\"audio/\") \u0026\u0026 !file.type.startsWith(\"video/\")) {\n            alert(\"Please select an audio or video file.\");\n            return;\n        }\n        setSelectedFile(file);\n        await transcribeAudio(file, file.name);\n    };\n    const summarizeTranscription = async (transcription)=\u003e{\n        setIsSummarizing(true);\n        try {\n            const response = await fetch(\"/integrations/chat-gpt/conversationgpt4\", {\n                method: \"POST\",\n                headers: {\n                    \"Content-Type\": \"application/json\"\n                },\n                body: JSON.stringify({\n                    messages: [\n                        {\n                            role: \"system\",\n                            content: \"You are an expert at summarizing and organizing transcribed content. Create a comprehensive summary with key points, action items, and important topics discussed.\"\n                        },\n                        {\n                            role: \"user\",\n                            content: `Please summarize and organize this transcription:\\n\\n${transcription.content}`\n                        }\n                    ]\n                })\n            });\n            const result = await response.json();\n            const summary = result.choices[0].message.content;\n            setTranscriptions((prev)=\u003eprev.map((t)=\u003et.id === transcription.id ? {\n                        ...t,\n                        summary\n                    } : t));\n            setIsSummarizing(false);\n        } catch (error) {\n            console.error(\"Summarization error:\", error);\n            setIsSummarizing(false);\n            alert(\"Error generating summary. Please try again.\");\n        }\n    };\n    const updateSpeakerName = (transcriptionId, oldSpeaker, newName)=\u003e{\n        setTranscriptions((prev)=\u003eprev.map((t)=\u003e{\n                if (t.id === transcriptionId) {\n                    const updatedContent = t.content.replace(new RegExp(oldSpeaker, \"g\"), newName);\n                    return {\n                        ...t,\n                        content: updatedContent\n                    };\n                }\n                return t;\n            }));\n        setSpeakerNames((prev)=\u003e({\n                ...prev,\n                [`${transcriptionId}-${oldSpeaker}`]: newName\n            }));\n        setEditingSpeaker(null);\n    };\n    const exportTranscription = (transcription, format)=\u003e{\n        const content = `${transcription.fileName}\\n\\nTranscription:\\n${transcription.content}\\n\\n${transcription.summary ? `Summary:\\n${transcription.summary}` : \"\"}`;\n        if (format === \"txt\") {\n            const blob = new Blob([\n                content\n            ], {\n                type: \"text/plain\"\n            });\n            const url = URL.createObjectURL(blob);\n            const a = document.createElement(\"a\");\n            a.href = url;\n            a.download = `${transcription.fileName}_transcription.txt`;\n            a.click();\n            URL.revokeObjectURL(url);\n        } else if (format === \"json\") {\n            const blob = new Blob([\n                JSON.stringify(transcription, null, 2)\n            ], {\n                type: \"application/json\"\n            });\n            const url = URL.createObjectURL(blob);\n            const a = document.createElement(\"a\");\n            a.href = url;\n            a.download = `${transcription.fileName}_transcription.json`;\n            a.click();\n            URL.revokeObjectURL(url);\n        }\n    };\n    const filteredTranscriptions = transcriptions.filter((t)=\u003et.fileName.toLowerCase().includes(searchQuery.toLowerCase()) || t.content.toLowerCase().includes(searchQuery.toLowerCase()) || t.summary \u0026\u0026 t.summary.toLowerCase().includes(searchQuery.toLowerCase()));\n    const deleteTranscription = (id)=\u003e{\n        setTranscriptions((prev)=\u003eprev.filter((t)=\u003et.id !== id));\n        if (selectedTranscription \u0026\u0026 selectedTranscription.id === id) {\n            setSelectedTranscription(null);\n        }\n    };\n    const clearLiveTranscription = ()=\u003e{\n        setLiveTranscription(\"\");\n    };\n    return /*#__PURE__*/ React.createElement(\"div\", {\n        className: \"min-h-screen bg-gray-50\",\n        __source: {\n            fileName: \"\u003canon\u003e\",\n            lineNumber: 421,\n            columnNumber: 5\n        },\n        __self: this\n    }, /*#__PURE__*/ React.createElement(\"div\", {\n        className: \"bg-white shadow-sm border-b\",\n        __source: {\n            fileName: \"\u003canon\u003e\",\n            lineNumber: 423,\n            columnNumber: 7\n        },\n        __self: this\n    }, /*#__PURE__*/ React.createElement(\"div\", {\n        className: \"max-w-7xl mx-auto px-4 sm:px-6 lg:px-8\",\n        __source: {\n            fileName: \"\u003canon\u003e\",\n            lineNumber: 424,\n            columnNumber: 9\n        },\n        __self: this\n    }, /*#__PURE__*/ React.createElement(\"div\", {\n        className: \"flex justify-between items-center py-4\",\n        __source: {\n            fileName: \"\u003canon\u003e\",\n            lineNumber: 425,\n            columnNumber: 11\n        },\n        __self: this\n    }, /*#__PURE__*/ React.createElement(\"div\", {\n        className: \"flex items-center space-x-3\",\n        __source: {\n            fileName: \"\u003canon\u003e\",\n            lineNumber: 426,\n            columnNumber: 13\n        },\n        __self: this\n    }, /*#__PURE__*/ React.createElement(\"div\", {\n        className: \"w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center\",\n        __source: {\n            fileName: \"\u003canon\u003e\",\n            lineNumber: 427,\n            columnNumber: 15\n        },\n        __self: this\n    }, /*#__PURE__*/ React.createElement(\"i\", {\n        className: \"fas fa-microphone text-white text-sm\",\n        __source: {\n            fileName: \"\u003canon\u003e\",\n            lineNumber: 428,\n            columnNumber: 17\n        },\n        __self: this\n    })), /*#__PURE__*/ React.createElement(\"h1\", {\n        className: \"text-2xl font-bold text-gray-900\",\n        __source: {\n            fileName: \"\u003canon\u003e\",\n            lineNumber: 430,\n            columnNumber: 15\n        },\n        __self: this\n    }, \"TridentAudio\")), /*#__PURE__*/ React.createElement(\"div\", {\n        className: \"flex items-center space-x-4\",\n        __source: {\n            fileName: \"\u003canon\u003e\",\n            lineNumber: 433,\n            columnNumber: 13\n        },\n        __self: this\n    }, /*#__PURE__*/ React.createElement(\"div\", {\n        className: \"flex bg-gray-100 rounded-lg p-1\",\n        __source: {\n            fileName: \"\u003canon\u003e\",\n            lineNumber: 434,\n            columnNumber: 15\n        },\n        __self: this\n    }, /*#__PURE__*/ React.createElement(\"button\", {\n        onClick: ()=\u003esetActiveTab(\"record\"),\n        className: `px-4 py-2 rounded-md text-sm font-medium transition-colors ${activeTab === \"record\" ? \"bg-white text-blue-600 shadow-sm\" : \"text-gray-600 hover:text-gray-900\"}`,\n        __source: {\n            fileName: \"\u003canon\u003e\",\n            lineNumber: 435,\n            columnNumber: 17\n        },\n        __self: this\n    }, \"Record\"), /*#__PURE__*/ React.createElement(\"button\", {\n        onClick: ()=\u003esetActiveTab(\"files\"),\n        className: `px-4 py-2 rounded-md text-sm font-medium transition-colors ${activeTab === \"files\" ? \"bg-white text-blue-600 shadow-sm\" : \"text-gray-600 hover:text-gray-900\"}`,\n        __source: {\n            fileName: \"\u003canon\u003e\",\n            lineNumber: 445,\n            columnNumber: 17\n        },\n        __self: this\n    }, \"Files (\", transcriptions.length, \")\")))))), /*#__PURE__*/ React.createElement(\"div\", {\n        className: \"max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8\",\n        __source: {\n            fileName: \"\u003canon\u003e\",\n            lineNumber: 461,\n            columnNumber: 7\n        },\n        __self: this\n    }, /*#__PURE__*/ React.createElement(\"div\", {\n        className: \"grid grid-cols-1 lg:grid-cols-3 gap-8\",\n        __source: {\n            fileName: \"\u003canon\u003e\",\n            lineNumber: 462,\n            columnNumber: 9\n        },\n        __self: this\n    }, /*#__PURE__*/ React.createElement(\"div\", {\n        className: \"lg:col-span-1\",\n        __source: {\n            fileName: \"\u003canon\u003e\",\n            lineNumber: 464,\n            columnNumber: 11\n        },\n        __self: this\n    }, /*#__PURE__*/ React.createElement(\"div\", {\n        className: \"bg-white rounded-xl shadow-sm border p-6\",\n        __source: {\n            fileName: \"\u003canon\u003e\",\n            lineNumber: 465,\n            columnNumber: 13\n        },\n        __self: this\n    }, activeTab === \"record\" ? /*#__PURE__*/ React.createElement(\"div\", {\n        className: \"space-y-6\",\n        __source: {\n            fileName: \"\u003canon\u003e\",\n            lineNumber: 467,\n            columnNumber: 17\n        },\n        __self: this\n    }, /*#__PURE__*/ React.createElement(\"div\", {\n        __source: {\n            fileName: \"\u003canon\u003e\",\n            lineNumber: 468,\n            columnNumber: 19\n        },\n        __self: this\n    }, /*#__PURE__*/ React.createElement(\"h2\", {\n        className: \"text-lg font-semibold text-gray-900 mb-4\",\n        __source: {\n            fileName: \"\u003canon\u003e\",\n            lineNumber: 469,\n            columnNumber: 21\n        },\n        __self: this\n    }, \"Audio Recording\"), /*#__PURE__*/ React.createElement(\"div\", {\n        className: \"mb-4\",\n        __source: {\n            fileName: \"\u003canon\u003e\",\n            lineNumber: 474,\n            columnNumber: 21\n        },\n        __self: this\n    }, /*#__PURE__*/ React.createElement(\"label\", {\n        className: \"block text-sm font-medium text-gray-700 mb-2\",\n        __source: {\n            fileName: \"\u003canon\u003e\",\n            lineNumber: 475,\n            columnNumber: 23\n        },\n        __self: this\n    }, \"Audio Source\"), /*#__PURE__*/ React.createElement(\"select\", {\n        value: audioSource,\n        onChange: (e)=\u003esetAudioSource(e.target.value),\n        className: \"w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent\",\n        disabled: isRecording || isLiveTranscribing,\n        __source: {\n            fileName: \"\u003canon\u003e\",\n            lineNumber: 478,\n            columnNumber: 23\n        },\n        __self: this\n    }, /*#__PURE__*/ React.createElement(\"option\", {\n        value: \"microphone\",\n        __source: {\n            fileName: \"\u003canon\u003e\",\n            lineNumber: 484,\n            columnNumber: 25\n        },\n        __self: this\n    }, \"Microphone (Input)\"), /*#__PURE__*/ React.createElement(\"option\", {\n        value: \"system\",\n        __source: {\n            fileName: \"\u003canon\u003e\",\n            lineNumber: 485,\n            columnNumber: 25\n        },\n        __self: this\n    }, \"System Audio (Output)\"), /*#__PURE__*/ React.createElement(\"option\", {\n        value: \"both\",\n        __source: {\n            fileName: \"\u003canon\u003e\",\n            lineNumber: 486,\n            columnNumber: 25\n        },\n        __self: this\n    }, \"Both (Input + Output)\")), /*#__PURE__*/ React.createElement(\"p\", {\n        className: \"text-xs text-gray-500 mt-1\",\n        __source: {\n            fileName: \"\u003canon\u003e\",\n            lineNumber: 488,\n            columnNumber: 23\n        },\n        __self: this\n    }, audioSource === \"microphone\" \u0026\u0026 \"Records from your microphone\", audioSource === \"system\" \u0026\u0026 \"Records system audio (what you hear)\", audioSource === \"both\" \u0026\u0026 \"Records both microphone and system audio\")), /*#__PURE__*/ React.createElement(\"div\", {\n        className: \"flex flex-col items-center space-y-4\",\n        __source: {\n            fileName: \"\u003canon\u003e\",\n            lineNumber: 499,\n            columnNumber: 21\n        },\n        __self: this\n    }, /*#__PURE__*/ React.createElement(\"div\", {\n        className: `w-24 h-24 rounded-full flex items-center justify-center transition-all duration-300 ${isRecording ? \"bg-red-500 animate-pulse\" : \"bg-blue-500 hover:bg-blue-600\"}`,\n        __source: {\n            fileName: \"\u003canon\u003e\",\n            lineNumber: 500,\n            columnNumber: 23\n        },\n        __self: this\n    }, /*#__PURE__*/ React.createElement(\"button\", {\n        onClick: isRecording ? stopRecording : startRecording,\n        className: \"text-white text-2xl focus:outline-none\",\n        disabled: isTranscribing || isLiveTranscribing,\n        __source: {\n            fileName: \"\u003canon\u003e\",\n            lineNumber: 507,\n            columnNumber: 25\n        },\n        __self: this\n    }, /*#__PURE__*/ React.createElement(\"i\", {\n        className: `fas ${isRecording ? \"fa-stop\" : \"fa-microphone\"}`,\n        __source: {\n            fileName: \"\u003canon\u003e\",\n            lineNumber: 512,\n            columnNumber: 27\n        },\n        __self: this\n    }))), /*#__PURE__*/ React.createElement(\"div\", {\n        className: \"text-center\",\n        __source: {\n            fileName: \"\u003canon\u003e\",\n            lineNumber: 518,\n            columnNumber: 23\n        },\n        __self: this\n    }, /*#__PURE__*/ React.createElement(\"p\", {\n        className: \"text-sm font-medium text-gray-900\",\n        __source: {\n            fileName: \"\u003canon\u003e\",\n            lineNumber: 519,\n            columnNumber: 25\n        },\n        __self: this\n    }, isRecording ? \"Recording...\" : \"Click to Start Recording\"), /*#__PURE__*/ React.createElement(\"p\", {\n        className: \"text-xs text-gray-500 mt-1\",\n        __source: {\n            fileName: \"\u003canon\u003e\",\n            lineNumber: 524,\n            columnNumber: 25\n        },\n        __self: this\n    }, audioSource === \"microphone\" \u0026\u0026 \"Using microphone input\", audioSource === \"system\" \u0026\u0026 \"Using system audio output\", audioSource === \"both\" \u0026\u0026 \"Using both input and output\")))), /*#__PURE__*/ React.createElement(\"div\", {\n        className: \"border-t pt-6\",\n        __source: {\n            fileName: \"\u003canon\u003e\",\n            lineNumber: 537,\n            columnNumber: 19\n        },\n        __self: this\n    }, /*#__PURE__*/ React.createElement(\"div\", {\n        className: \"flex items-center justify-between mb-3\",\n        __source: {\n            fileName: \"\u003canon\u003e\",\n            lineNumber: 538,\n            columnNumber: 21\n        },\n        __self: this\n    }, /*#__PURE__*/ React.createElement(\"h3\", {\n        className: \"text-md font-medium text-gray-900\",\n        __source: {\n            fileName: \"\u003canon\u003e\",\n            lineNumber: 539,\n            columnNumber: 23\n        },\n        __self: this\n    }, \"Live Transcription\"), /*#__PURE__*/ React.createElement(\"button\", {\n        onClick: isLiveTranscribing ? stopLiveTranscription : startLiveTranscription,\n        disabled: isRecording || isTranscribing,\n        className: `px-3 py-1 rounded-lg text-sm font-medium transition-colors ${isLiveTranscribing ? \"bg-red-100 text-red-700 hover:bg-red-200\" : \"bg-green-100 text-green-700 hover:bg-green-200\"}`,\n        __source: {\n            fileName: \"\u003canon\u003e\",\n            lineNumber: 542,\n            columnNumber: 23\n        },\n        __self: this\n    }, isLiveTranscribing ? /*#__PURE__*/ React.createElement(React.Fragment, null, /*#__PURE__*/ React.createElement(\"i\", {\n        className: \"fas fa-stop mr-1\",\n        __source: {\n            fileName: \"\u003canon\u003e\",\n            lineNumber: 557,\n            columnNumber: 29\n        },\n        __self: this\n    }), \"Stop Live\") : /*#__PURE__*/ React.createElement(React.Fragment, null, /*#__PURE__*/ React.createElement(\"i\", {\n        className: \"fas fa-play mr-1\",\n        __source: {\n            fileName: \"\u003canon\u003e\",\n            lineNumber: 562,\n            columnNumber: 29\n        },\n        __self: this\n    }), \"Start Live\"))), /*#__PURE__*/ React.createElement(\"div\", {\n        className: \"bg-gray-50 rounded-lg p-4 min-h-[120px] max-h-[200px] overflow-y-auto\",\n        __source: {\n            fileName: \"\u003canon\u003e\",\n            lineNumber: 569,\n            columnNumber: 21\n        },\n        __self: this\n    }, isLiveTranscribing \u0026\u0026 /*#__PURE__*/ React.createElement(\"div\", {\n        className: \"flex items-center space-x-2 mb-2\",\n        __source: {\n            fileName: \"\u003canon\u003e\",\n            lineNumber: 571,\n            columnNumber: 25\n        },\n        __self: this\n    }, /*#__PURE__*/ React.createElement(\"div\", {\n        className: \"w-2 h-2 bg-red-500 rounded-full animate-pulse\",\n        __source: {\n            fileName: \"\u003canon\u003e\",\n            lineNumber: 572,\n            columnNumber: 27\n        },\n        __self: this\n    }), /*#__PURE__*/ React.createElement(\"span\", {\n        className: \"text-xs text-gray-600\",\n        __source: {\n            fileName: \"\u003canon\u003e\",\n            lineNumber: 573,\n            columnNumber: 27\n        },\n        __self: this\n    }, \"Live transcribing...\"), /*#__PURE__*/ React.createElement(\"button\", {\n        onClick: clearLiveTranscription,\n        className: \"ml-auto text-xs text-gray-500 hover:text-gray-700\",\n        __source: {\n            fileName: \"\u003canon\u003e\",\n            lineNumber: 576,\n            columnNumber: 27\n        },\n        __self: this\n    }, \"Clear\")), /*#__PURE__*/ React.createElement(\"div\", {\n        className: \"text-sm text-gray-800\",\n        __source: {\n            fileName: \"\u003canon\u003e\",\n            lineNumber: 585,\n            columnNumber: 23\n        },\n        __self: this\n    }, liveTranscription || /*#__PURE__*/ React.createElement(\"span\", {\n        className: \"text-gray-500 italic\",\n        __source: {\n            fileName: \"\u003canon\u003e\",\n            lineNumber: 587,\n            columnNumber: 27\n        },\n        __self: this\n    }, isLiveTranscribing ? \"Listening for speech...\" : 'Click \"Start Live\" to begin real-time transcription')))), /*#__PURE__*/ React.createElement(\"div\", {\n        className: \"border-t pt-6\",\n        __source: {\n            fileName: \"\u003canon\u003e\",\n            lineNumber: 598,\n            columnNumber: 19\n        },\n        __self: this\n    }, /*#__PURE__*/ React.createElement(\"h3\", {\n        className: \"text-md font-medium text-gray-900 mb-3\",\n        __source: {\n            fileName: \"\u003canon\u003e\",\n            lineNumber: 599,\n            columnNumber: 21\n        },\n        __self: this\n    }, \"Upload Audio/Video\"), /*#__PURE__*/ React.createElement(\"div\", {\n        className: \"border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-blue-400 transition-colors\",\n        __source: {\n            fileName: \"\u003canon\u003e\",\n            lineNumber: 602,\n            columnNumber: 21\n        },\n        __self: this\n    }, /*#__PURE__*/ React.createElement(\"input\", {\n        type: \"file\",\n        accept: \"audio/*,video/*\",\n        onChange: handleFileUpload,\n        className: \"hidden\",\n        id: \"file-upload\",\n        disabled: isTranscribing || isRecording || isLiveTranscribing,\n        __source: {\n            fileName: \"\u003canon\u003e\",\n            lineNumber: 603,\n            columnNumber: 23\n        },\n        __self: this\n    }), /*#__PURE__*/ React.createElement(\"label\", {\n        htmlFor: \"file-upload\",\n        className: \"cursor-pointer flex flex-col items-center space-y-2\",\n        __source: {\n            fileName: \"\u003canon\u003e\",\n            lineNumber: 613,\n            columnNumber: 23\n        },\n        __self: this\n    }, /*#__PURE__*/ React.createElement(\"i\", {\n        className: \"fas fa-cloud-upload-alt text-3xl text-gray-400\",\n        __source: {\n            fileName: \"\u003canon\u003e\",\n            lineNumber: 617,\n            columnNumber: 25\n        },\n        __self: this\n    }), /*#__PURE__*/ React.createElement(\"span\", {\n        className: \"text-sm text-gray-600\",\n        __source: {\n            fileName: \"\u003canon\u003e\",\n            lineNumber: 618,\n            columnNumber: 25\n        },\n        __self: this\n    }, \"Click to upload audio or video file\"), /*#__PURE__*/ React.createElement(\"span\", {\n        className: \"text-xs text-gray-400\",\n        __source: {\n            fileName: \"\u003canon\u003e\",\n            lineNumber: 621,\n            columnNumber: 25\n        },\n        __self: this\n    }, \"Supports MP3, WAV, MP4, and more\")))), (isTranscribing || currentTranscription) \u0026\u0026 /*#__PURE__*/ React.createElement(\"div\", {\n        className: \"border-t pt-6\",\n        __source: {\n            fileName: \"\u003canon\u003e\",\n            lineNumber: 630,\n            columnNumber: 21\n        },\n        __self: this\n    }, /*#__PURE__*/ React.createElement(\"div\", {\n        className: \"flex items-center space-x-3\",\n        __source: {\n            fileName: \"\u003canon\u003e\",\n            lineNumber: 631,\n            columnNumber: 23\n        },\n        __self: this\n    }, /*#__PURE__*/ React.createElement(\"div\", {\n        className: \"animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600\",\n        __source: {\n            fileName: \"\u003canon\u003e\",\n            lineNumber: 632,\n            columnNumber: 25\n        },\n        __self: this\n    }), /*#__PURE__*/ React.createElement(\"span\", {\n        className: \"text-sm text-gray-600\",\n        __source: {\n            fileName: \"\u003canon\u003e\",\n            lineNumber: 633,\n            columnNumber: 25\n        },\n        __self: this\n    }, isTranscribing ? \"Transcribing audio...\" : \"Processing...\")), currentTranscription \u0026\u0026 /*#__PURE__*/ React.createElement(\"div\", {\n        className: \"mt-3 p-3 bg-blue-50 rounded-lg\",\n        __source: {\n            fileName: \"\u003canon\u003e\",\n            lineNumber: 640,\n            columnNumber: 25\n        },\n        __self: this\n    }, /*#__PURE__*/ React.createElement(\"p\", {\n        className: \"text-sm text-gray-700\",\n        __source: {\n            fileName: \"\u003canon\u003e\",\n            lineNumber: 641,\n            columnNumber: 27\n        },\n        __self: this\n    }, currentTranscription)))) : /*#__PURE__*/ React.createElement(\"div\", {\n        className: \"space-y-4\",\n        __source: {\n            fileName: \"\u003canon\u003e\",\n            lineNumber: 650,\n            columnNumber: 17\n        },\n        __self: this\n    }, /*#__PURE__*/ React.createElement(\"div\", {\n        className: \"flex items-center justify-between\",\n        __source: {\n            fileName: \"\u003canon\u003e\",\n            lineNumber: 651,\n            columnNumber: 19\n        },\n        __self: this\n    }, /*#__PURE__*/ React.createElement(\"h2\", {\n        className: \"text-lg font-semibold text-gray-900\",\n        __source: {\n            fileName: \"\u003canon\u003e\",\n            lineNumber: 652,\n            columnNumber: 21\n        },\n        __self: this\n    }, \"File Manager\"), /*#__PURE__*/ React.createElement(\"span\", {\n        className: \"text-sm text-gray-500\",\n        __source: {\n            fileName: \"\u003canon\u003e\",\n            lineNumber: 655,\n            columnNumber: 21\n        },\n        __self: this\n    }, transcriptions.length, \" files\")), /*#__PURE__*/ React.createElement(\"div\", {\n        className: \"relative\",\n        __source: {\n            fileName: \"\u003canon\u003e\",\n            lineNumber: 661,\n            columnNumber: 19\n        },\n        __self: this\n    }, /*#__PURE__*/ React.createElement(\"input\", {\n        type: \"text\",\n        placeholder: \"Search transcriptions...\",\n        value: searchQuery,\n        onChange: (e)=\u003esetSearchQuery(e.target.value),\n        className: \"w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent\",\n        __source: {\n            fileName: \"\u003canon\u003e\",\n            lineNumber: 662,\n            columnNumber: 21\n        },\n        __self: this\n    }), /*#__PURE__*/ React.createElement(\"i\", {\n        className: \"fas fa-search absolute left-3 top-3 text-gray-400\",\n        __source: {\n            fileName: \"\u003canon\u003e\",\n            lineNumber: 669,\n            columnNumber: 21\n        },\n        __self: this\n    })), /*#__PURE__*/ React.createElement(\"div\", {\n        className: \"space-y-2 max-h-96 overflow-y-auto\",\n        __source: {\n            fileName: \"\u003canon\u003e\",\n            lineNumber: 673,\n            columnNumber: 19\n        },\n        __self: this\n    }, filteredTranscriptions.map((transcription)=\u003e/*#__PURE__*/ React.createElement(\"div\", {\n            key: transcription.id,\n            className: `p-3 rounded-lg border cursor-pointer transition-colors ${selectedTranscription?.id === transcription.id ? \"border-blue-500 bg-blue-50\" : \"border-gray-200 hover:border-gray-300\"}`,\n            onClick: ()=\u003esetSelectedTranscription(transcription),\n            __source: {\n                fileName: \"\u003canon\u003e\",\n                lineNumber: 675,\n                columnNumber: 23\n            },\n            __self: this\n        }, /*#__PURE__*/ React.createElement(\"div\", {\n            className: \"flex items-center justify-between\",\n            __source: {\n                fileName: \"\u003canon\u003e\",\n                lineNumber: 684,\n                columnNumber: 25\n            },\n            __self: this\n        }, /*#__PURE__*/ React.createElement(\"div\", {\n            className: \"flex-1 min-w-0\",\n            __source: {\n                fileName: \"\u003canon\u003e\",\n                lineNumber: 685,\n                columnNumber: 27\n            },\n            __self: this\n        }, /*#__PURE__*/ React.createElement(\"p\", {\n            className: \"text-sm font-medium text-gray-900 truncate\",\n            __source: {\n                fileName: \"\u003canon\u003e\",\n                lineNumber: 686,\n                columnNumber: 29\n            },\n            __self: this\n        }, transcription.fileName), /*#__PURE__*/ React.createElement(\"p\", {\n            className: \"text-xs text-gray-500\",\n            __source: {\n                fileName: \"\u003canon\u003e\",\n                lineNumber: 689,\n                columnNumber: 29\n            },\n            __self: this\n        }, new Date(transcription.timestamp).toLocaleDateString())), /*#__PURE__*/ React.createElement(\"button\", {\n            onClick: (e)=\u003e{\n                e.stopPropagation();\n                deleteTranscription(transcription.id);\n            },\n            className: \"text-gray-400 hover:text-red-500 ml-2\",\n            __source: {\n                fileName: \"\u003canon\u003e\",\n                lineNumber: 695,\n                columnNumber: 27\n            },\n            __self: this\n        }, /*#__PURE__*/ React.createElement(\"i\", {\n            className: \"fas fa-trash text-xs\",\n            __source: {\n                fileName: \"\u003canon\u003e\",\n                lineNumber: 702,\n                columnNumber: 29\n            },\n            __self: this\n        }))))), filteredTranscriptions.length === 0 \u0026\u0026 /*#__PURE__*/ React.createElement(\"div\", {\n        className: \"text-center py-8 text-gray-500\",\n        __source: {\n            fileName: \"\u003canon\u003e\",\n            lineNumber: 709,\n            columnNumber: 23\n        },\n        __self: this\n    }, /*#__PURE__*/ React.createElement(\"i\", {\n        className: \"fas fa-file-audio text-3xl mb-2\",\n        __source: {\n            fileName: \"\u003canon\u003e\",\n            lineNumber: 710,\n            columnNumber: 25\n        },\n        __self: this\n    }), /*#__PURE__*/ React.createElement(\"p\", {\n        className: \"text-sm\",\n        __source: {\n            fileName: \"\u003canon\u003e\",\n            lineNumber: 711,\n            columnNumber: 25\n        },\n        __self: this\n    }, searchQuery ? \"No matching files found\" : \"No transcriptions yet\")))))), /*#__PURE__*/ React.createElement(\"div\", {\n        className: \"lg:col-span-2\",\n        __source: {\n            fileName: \"\u003canon\u003e\",\n            lineNumber: 725,\n            columnNumber: 11\n        },\n        __self: this\n    }, /*#__PURE__*/ React.createElement(\"div\", {\n        className: \"bg-white rounded-xl shadow-sm border\",\n        __source: {\n            fileName: \"\u003canon\u003e\",\n            lineNumber: 726,\n            columnNumber: 13\n        },\n        __self: this\n    }, selectedTranscription ? /*#__PURE__*/ React.createElement(\"div\", {\n        className: \"p-6\",\n        __source: {\n            fileName: \"\u003canon\u003e\",\n            lineNumber: 728,\n            columnNumber: 17\n        },\n        __self: this\n    }, /*#__PURE__*/ React.createElement(\"div\", {\n        className: \"flex items-center justify-between mb-6\",\n        __source: {\n            fileName: \"\u003canon\u003e\",\n            lineNumber: 730,\n            columnNumber: 19\n        },\n        __self: this\n    }, /*#__PURE__*/ React.createElement(\"div\", {\n        __source: {\n            fileName: \"\u003canon\u003e\",\n            lineNumber: 731,\n            columnNumber: 21\n        },\n        __self: this\n    }, /*#__PURE__*/ React.createElement(\"h2\", {\n        className: \"text-xl font-semibold text-gray-900\",\n        __source: {\n            fileName: \"\u003canon\u003e\",\n            lineNumber: 732,\n            columnNumber: 23\n        },\n        __self: this\n    }, selectedTranscription.fileName), /*#__PURE__*/ React.createElement(\"p\", {\n        className: \"text-sm text-gray-500\",\n        __source: {\n            fileName: \"\u003canon\u003e\",\n            lineNumber: 735,\n            columnNumber: 23\n        },\n        __self: this\n    }, new Date(selectedTranscription.timestamp).toLocaleString())), /*#__PURE__*/ React.createElement(\"div\", {\n        className: \"flex items-center space-x-2\",\n        __source: {\n            fileName: \"\u003canon\u003e\",\n            lineNumber: 742,\n            columnNumber: 21\n        },\n        __self: this\n    }, /*#__PURE__*/ React.createElement(\"button\", {\n        onClick: ()=\u003esummarizeTranscription(selectedTranscription),\n        disabled: isSummarizing,\n        className: \"px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 text-sm\",\n        __source: {\n            fileName: \"\u003canon\u003e\",\n            lineNumber: 744,\n            columnNumber: 23\n        },\n        __self: this\n    }, isSummarizing ? /*#__PURE__*/ React.createElement(React.Fragment, null, /*#__PURE__*/ React.createElement(\"i\", {\n        className: \"fas fa-spinner animate-spin mr-2\",\n        __source: {\n            fileName: \"\u003canon\u003e\",\n            lineNumber: 753,\n            columnNumber: 29\n        },\n        __self: this\n    }), \"Summarizing...\") : /*#__PURE__*/ React.createElement(React.Fragment, null, /*#__PURE__*/ React.createElement(\"i\", {\n        className: \"fas fa-magic mr-2\",\n        __source: {\n            fileName: \"\u003canon\u003e\",\n            lineNumber: 758,\n            columnNumber: 29\n        },\n        __self: this\n    }), selectedTranscription.summary ? \"Re-summarize\" : \"Summarize\")), /*#__PURE__*/ React.createElement(\"div\", {\n        className: \"relative group\",\n        __source: {\n            fileName: \"\u003canon\u003e\",\n            lineNumber: 767,\n            columnNumber: 23\n        },\n        __self: this\n    }, /*#__PURE__*/ React.createElement(\"button\", {\n        className: \"px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm\",\n        __source: {\n            fileName: \"\u003canon\u003e\",\n            lineNumber: 768,\n            columnNumber: 25\n        },\n        __self: this\n    }, /*#__PURE__*/ React.createElement(\"i\", {\n        className: \"fas fa-download mr-2\",\n        __source: {\n            fileName: \"\u003canon\u003e\",\n            lineNumber: 769,\n            columnNumber: 27\n        },\n        __self: this\n    }), \"Export\"), /*#__PURE__*/ React.createElement(\"div\", {\n        className: \"absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-10\",\n        __source: {\n            fileName: \"\u003canon\u003e\",\n            lineNumber: 772,\n            columnNumber: 25\n        },\n        __self: this\n    }, /*#__PURE__*/ React.createElement(\"button\", {\n        onClick: ()=\u003eexportTranscription(selectedTranscription, \"txt\"),\n        className: \"w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-t-lg\",\n        __source: {\n            fileName: \"\u003canon\u003e\",\n            lineNumber: 773,\n            columnNumber: 27\n        },\n        __self: this\n    }, /*#__PURE__*/ React.createElement(\"i\", {\n        className: \"fas fa-file-alt mr-2\",\n        __source: {\n            fileName: \"\u003canon\u003e\",\n            lineNumber: 779,\n            columnNumber: 29\n        },\n        __self: this\n    }), \"Export as TXT\"), /*#__PURE__*/ React.createElement(\"button\", {\n        onClick: ()=\u003eexportTranscription(selectedTranscription, \"json\"),\n        className: \"w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-b-lg\",\n        __source: {\n            fileName: \"\u003canon\u003e\",\n            lineNumber: 782,\n            columnNumber: 27\n        },\n        __self: this\n    }, /*#__PURE__*/ React.createElement(\"i\", {\n        className: \"fas fa-file-code mr-2\",\n        __source: {\n            fileName: \"\u003canon\u003e\",\n            lineNumber: 788,\n            columnNumber: 29\n        },\n        __self: this\n    }), \"Export as JSON\"))))), selectedTranscription.summary \u0026\u0026 /*#__PURE__*/ React.createElement(\"div\", {\n        className: \"mb-6 p-4 bg-green-50 rounded-lg border border-green-200\",\n        __source: {\n            fileName: \"\u003canon\u003e\",\n            lineNumber: 798,\n            columnNumber: 21\n        },\n        __self: this\n    }, /*#__PURE__*/ React.createElement(\"h3\", {\n        className: \"text-md font-semibold text-green-900 mb-2\",\n        __source: {\n            fileName: \"\u003canon\u003e\",\n            lineNumber: 799,\n            columnNumber: 23\n        },\n        __self: this\n    }, /*#__PURE__*/ React.createElement(\"i\", {\n        className: \"fas fa-magic mr-2\",\n        __source: {\n            fileName: \"\u003canon\u003e\",\n            lineNumber: 800,\n            columnNumber: 25\n        },\n        __self: this\n    }), \"AI Summary\"), /*#__PURE__*/ React.createElement(\"div\", {\n        className: \"text-sm text-green-800 whitespace-pre-wrap\",\n        __source: {\n            fileName: \"\u003canon\u003e\",\n            lineNumber: 803,\n            columnNumber: 23\n        },\n        __self: this\n    }, selectedTranscription.summary)), /*#__PURE__*/ React.createElement(\"div\", {\n        className: \"space-y-4\",\n        __source: {\n            fileName: \"\u003canon\u003e\",\n            lineNumber: 810,\n            columnNumber: 19\n        },\n        __self: this\n    }, /*#__PURE__*/ React.createElement(\"h3\", {\n        className: \"text-md font-semibold text-gray-900\",\n        __source: {\n            fileName: \"\u003canon\u003e\",\n            lineNumber: 811,\n            columnNumber: 21\n        },\n        __self: this\n    }, /*#__PURE__*/ React.createElement(\"i\", {\n        className: \"fas fa-file-alt mr-2\",\n        __source: {\n            fileName: \"\u003canon\u003e\",\n            lineNumber: 812,\n            columnNumber: 23\n        },\n        __self: this\n    }), \"Transcription\"), /*#__PURE__*/ React.createElement(\"div\", {\n        className: \"bg-gray-50 rounded-lg p-4 max-h-96 overflow-y-auto\",\n        __source: {\n            fileName: \"\u003canon\u003e\",\n            lineNumber: 816,\n            columnNumber: 21\n        },\n        __self: this\n    }, /*#__PURE__*/ React.createElement(\"div\", {\n        className: \"text-sm text-gray-800 whitespace-pre-wrap leading-relaxed\",\n        __source: {\n            fileName: \"\u003canon\u003e\",\n            lineNumber: 817,\n            columnNumber: 23\n        },\n        __self: this\n    }, selectedTranscription.content.split(\"\\n\").map((line, index)=\u003e{\n        const speakerMatch = line.match(/^(\\[[\\d:]+\\]\\s*)(Speaker \\d+)(:.*)/);\n        if (speakerMatch) {\n            const [, timestamp, speaker, content] = speakerMatch;\n            const speakerKey = `${selectedTranscription.id}-${speaker}`;\n            const customName = speakerNames[speakerKey];\n            return /*#__PURE__*/ React.createElement(\"div\", {\n                key: index,\n                className: \"mb-2\",\n                __source: {\n                    fileName: \"\u003canon\u003e\",\n                    lineNumber: 831,\n                    columnNumber: 33\n                },\n                __self: this\n            }, /*#__PURE__*/ React.createElement(\"span\", {\n                className: \"text-gray-500\",\n                __source: {\n                    fileName: \"\u003canon\u003e\",\n                    lineNumber: 832,\n                    columnNumber: 35\n                },\n                __self: this\n            }, timestamp), editingSpeaker === speakerKey ? /*#__PURE__*/ React.createElement(\"input\", {\n                type: \"text\",\n                defaultValue: customName || speaker,\n                onBlur: (e)=\u003eupdateSpeakerName(selectedTranscription.id, speaker, e.target.value),\n                onKeyPress: (e)=\u003e{\n                    if (e.key === \"Enter\") {\n                        updateSpeakerName(selectedTranscription.id, speaker, e.target.value);\n                    }\n                },\n                className: \"mx-1 px-2 py-1 border rounded text-blue-600 font-medium\",\n                autoFocus: true,\n                __source: {\n                    fileName: \"\u003canon\u003e\",\n                    lineNumber: 836,\n                    columnNumber: 37\n                },\n                __self: this\n            }) : /*#__PURE__*/ React.createElement(\"button\", {\n                onClick: ()=\u003esetEditingSpeaker(speakerKey),\n                className: \"mx-1 text-blue-600 font-medium hover:underline\",\n                __source: {\n                    fileName: \"\u003canon\u003e\",\n                    lineNumber: 859,\n                    columnNumber: 37\n                },\n                __self: this\n            }, customName || speaker), /*#__PURE__*/ React.createElement(\"span\", {\n                __source: {\n                    fileName: \"\u003canon\u003e\",\n                    lineNumber: 868,\n                    columnNumber: 35\n                },\n                __self: this\n            }, content));\n        }\n        return /*#__PURE__*/ React.createElement(\"div\", {\n            key: index,\n            className: \"mb-1\",\n            __source: {\n                fileName: \"\u003canon\u003e\",\n                lineNumber: 873,\n                columnNumber: 31\n            },\n            __self: this\n        }, line);\n    }))))) : /*#__PURE__*/ React.createElement(\"div\", {\n        className: \"p-12 text-center\",\n        __source: {\n            fileName: \"\u003canon\u003e\",\n            lineNumber: 883,\n            columnNumber: 17\n        },\n        __self: this\n    }, /*#__PURE__*/ React.createElement(\"div\", {\n        className: \"text-gray-400 mb-4\",\n        __source: {\n            fileName: \"\u003canon\u003e\",\n            lineNumber: 884,\n            columnNumber: 19\n        },\n        __self: this\n    }, /*#__PURE__*/ React.createElement(\"i\", {\n        className: \"fas fa-file-audio text-6xl\",\n        __source: {\n            fileName: \"\u003canon\u003e\",\n            lineNumber: 885,\n            columnNumber: 21\n        },\n        __self: this\n    })), /*#__PURE__*/ React.createElement(\"h3\", {\n        className: \"text-lg font-medium text-gray-900 mb-2\",\n        __source: {\n            fileName: \"\u003canon\u003e\",\n            lineNumber: 887,\n            columnNumber: 19\n        },\n        __self: this\n    }, \"No transcription selected\"), /*#__PURE__*/ React.createElement(\"p\", {\n        className: \"text-gray-500\",\n        __source: {\n            fileName: \"\u003canon\u003e\",\n            lineNumber: 890,\n            columnNumber: 19\n        },\n        __self: this\n    }, activeTab === \"record\" ? \"Start recording or upload a file to begin transcription\" : \"Select a file from the list to view its transcription\")))))));\n}\n"])</script><script>self.__next_f.push([1,"6:[false,[\"$\",\"style\",null,{\"dangerouslySetInnerHTML\":{\"__html\":\"$11\"}}],[\"$\",\"style\",null,{\"data-twind\":\"\",\"id\":\"twind-styles\"}],[\"$\",\"div\",null,{\"className\":\"__className_e8ce0c relative h-full w-full\",\"children\":[false,[\"$\",\"$L12\",null,{\"fallback\":[\"$\",\"div\",null,{\"className\":\"flex h-full w-full flex-col items-center justify-center\",\"children\":[\"$\",\"$L13\",null,{}]}],\"children\":[\"$\",\"$L14\",null,{\"compiledJS\":\"$15\",\"newDbEnabled\":false,\"authEnabled\":false,\"clientIntegrationsSrc\":[],\"isComponent\":false,\"projectId\":\"2f321b24-ebcc-4e28-91c8-f2cb2146e778\",\"selectedRevisionId\":\"e4163884-c385-49de-ab76-7f4581beb65d\",\"envVariables\":[[\"NEXT_PUBLIC_CREATE_ENV\",\"PRODUCTION\"],[\"NEXT_PUBLIC_CREATE_APP_URL\",\"https://bcfa2990-27a6-4835-8260-f968800d5811.created.app\"]],\"moduleType\":\"PAGE\"}]}]]}],[\"$\",\"$a\",null,{\"fallback\":null,\"children\":[\"$\",\"$a\",null,{\"fallback\":null,\"children\":[\"$\",\"$L16\",null,{\"reason\":\"next/dynamic\",\"children\":[\"$\",\"$L17\",null,{}]}]}]}]]\n"])</script></body></html>
