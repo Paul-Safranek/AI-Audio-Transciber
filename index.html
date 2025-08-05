@@ -1,3 +1,8 @@
+"use client";
+import React from "react";
+
+import { useHandleStreamResponse } from "../utilities/runtime-helpers";
+
 function MainComponent() {
   const [isRecording, setIsRecording] = React.useState(false);
   const [mediaRecorder, setMediaRecorder] = React.useState(null);
@@ -41,7 +46,7 @@ function MainComponent() {
             return { audio: true, video: false };
           } else {
             throw new Error(
-              "System audio capture not supported in this browser",
+              "System audio capture not supported in this browser"
             );
           }
 
@@ -59,7 +64,7 @@ function MainComponent() {
             });
           } catch (error) {
             console.warn(
-              "Could not capture system audio, using microphone only",
+              "Could not capture system audio, using microphone only"
             );
             return micStream;
           }
@@ -239,7 +244,7 @@ function MainComponent() {
 
     await transcribeAudio(
       audioBlob,
-      `Recording ${new Date().toLocaleString()}`,
+      `Recording ${new Date().toLocaleString()}`
     );
   };
 
@@ -341,7 +346,7 @@ function MainComponent() {
       const summary = result.choices[0].message.content;
 
       setTranscriptions((prev) =>
-        prev.map((t) => (t.id === transcription.id ? { ...t, summary } : t)),
+        prev.map((t) => (t.id === transcription.id ? { ...t, summary } : t))
       );
 
       setIsSummarizing(false);
@@ -358,12 +363,12 @@ function MainComponent() {
         if (t.id === transcriptionId) {
           const updatedContent = t.content.replace(
             new RegExp(oldSpeaker, "g"),
-            newName,
+            newName
           );
           return { ...t, content: updatedContent };
         }
         return t;
-      }),
+      })
     );
 
     setSpeakerNames((prev) => ({
@@ -375,7 +380,9 @@ function MainComponent() {
   };
 
   const exportTranscription = (transcription, format) => {
-    const content = `${transcription.fileName}\n\nTranscription:\n${transcription.content}\n\n${transcription.summary ? `Summary:\n${transcription.summary}` : ""}`;
+    const content = `${transcription.fileName}\n\nTranscription:\n${
+      transcription.content
+    }\n\n${transcription.summary ? `Summary:\n${transcription.summary}` : ""}`;
 
     if (format === "txt") {
       const blob = new Blob([content], { type: "text/plain" });
@@ -402,8 +409,7 @@ function MainComponent() {
     (t) =>
       t.fileName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       t.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (t.summary &&
-        t.summary.toLowerCase().includes(searchQuery.toLowerCase())),
+      (t.summary && t.summary.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
   const deleteTranscription = (id) => {
@@ -510,7 +516,9 @@ function MainComponent() {
                           disabled={isTranscribing || isLiveTranscribing}
                         >
                           <i
-                            className={`fas ${isRecording ? "fa-stop" : "fa-microphone"}`}
+                            className={`fas ${
+                              isRecording ? "fa-stop" : "fa-microphone"
+                            }`}
                           ></i>
                         </button>
                       </div>
@@ -688,7 +696,7 @@ function MainComponent() {
                             </p>
                             <p className="text-xs text-gray-500">
                               {new Date(
-                                transcription.timestamp,
+                                transcription.timestamp
                               ).toLocaleDateString()}
                             </p>
                           </div>
@@ -734,7 +742,7 @@ function MainComponent() {
                       </h2>
                       <p className="text-sm text-gray-500">
                         {new Date(
-                          selectedTranscription.timestamp,
+                          selectedTranscription.timestamp
                         ).toLocaleString()}
                       </p>
                     </div>
@@ -819,7 +827,7 @@ function MainComponent() {
                           .split("\n")
                           .map((line, index) => {
                             const speakerMatch = line.match(
-                              /^(\[[\d:]+\]\s*)(Speaker \d+)(:.*)/,
+                              /^(\[[\d:]+\]\s*)(Speaker \d+)(:.*)/
                             );
                             if (speakerMatch) {
                               const [, timestamp, speaker, content] =
@@ -840,7 +848,7 @@ function MainComponent() {
                                         updateSpeakerName(
                                           selectedTranscription.id,
                                           speaker,
-                                          e.target.value,
+                                          e.target.value
                                         )
                                       }
                                       onKeyPress={(e) => {
@@ -848,7 +856,7 @@ function MainComponent() {
                                           updateSpeakerName(
                                             selectedTranscription.id,
                                             speaker,
-                                            e.target.value,
+                                            e.target.value
                                           );
                                         }
                                       }}
@@ -902,5 +910,4 @@ function MainComponent() {
   );
 }
 
-
-
+export default MainComponent;
