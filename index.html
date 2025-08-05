@@ -1,911 +1,856 @@
 "use client";
 import React from "react";
 
-import { useHandleStreamResponse } from "../utilities/runtime-helpers";
-
 function MainComponent() {
-  const [isRecording, setIsRecording] = React.useState(false);
-  const [mediaRecorder, setMediaRecorder] = React.useState(null);
-  const [audioChunks, setAudioChunks] = React.useState([]);
-  const [transcriptions, setTranscriptions] = React.useState([]);
-  const [currentTranscription, setCurrentTranscription] = React.useState("");
-  const [isTranscribing, setIsTranscribing] = React.useState(false);
-  const [selectedFile, setSelectedFile] = React.useState(null);
-  const [searchQuery, setSearchQuery] = React.useState("");
-  const [selectedTranscription, setSelectedTranscription] =
-    React.useState(null);
-  const [isSummarizing, setIsSummarizing] = React.useState(false);
-  const [audioSource, setAudioSource] = React.useState("microphone");
-  const [speakerNames, setSpeakerNames] = React.useState({});
-  const [editingSpeaker, setEditingSpeaker] = React.useState(null);
-  const [activeTab, setActiveTab] = React.useState("record");
-
-  // Live transcription states
-  const [isLiveTranscribing, setIsLiveTranscribing] = React.useState(false);
-  const [liveTranscription, setLiveTranscription] = React.useState("");
-  const [liveMediaRecorder, setLiveMediaRecorder] = React.useState(null);
-  const [liveAudioChunks, setLiveAudioChunks] = React.useState([]);
-
-  const handleStreamResponse = useHandleStreamResponse({
-    onChunk: (chunk) => setCurrentTranscription((prev) => prev + chunk),
-    onFinish: (message) => {
-      setCurrentTranscription("");
-      setIsTranscribing(false);
-    },
-  });
-
-  const getAudioConstraints = async (source) => {
-    try {
-      switch (source) {
-        case "microphone":
-          return { audio: { echoCancellation: true, noiseSuppression: true } };
-
-        case "system":
-          // Try to get system audio (desktop capture)
-          if (navigator.mediaDevices.getDisplayMedia) {
-            return { audio: true, video: false };
-          } else {
-            throw new Error(
-              "System audio capture not supported in this browser"
-            );
-          }
-
-        case "both":
-          // This is more complex - we'll need to mix both streams
-          const micStream = await navigator.mediaDevices.getUserMedia({
-            audio: { echoCancellation: true, noiseSuppression: true },
-          });
-
-          let systemStream;
-          try {
-            systemStream = await navigator.mediaDevices.getDisplayMedia({
-              audio: true,
-              video: false,
-            });
-          } catch (error) {
-            console.warn(
-              "Could not capture system audio, using microphone only"
-            );
-            return micStream;
-          }
-
-          // Create audio context to mix streams
-          const audioContext = new AudioContext();
-          const micSource = audioContext.createMediaStreamSource(micStream);
-          const systemSource =
-            audioContext.createMediaStreamSource(systemStream);
-          const destination = audioContext.createMediaStreamDestination();
-
-          micSource.connect(destination);
-          systemSource.connect(destination);
-
-          return destination.stream;
-
-        default:
-          return { audio: { echoCancellation: true, noiseSuppression: true } };
-      }
-    } catch (error) {
-      console.error("Error getting audio constraints:", error);
-      throw error;
-    }
-  };
-
-  const startRecording = async () => {
-    try {
-      let stream;
-
-      if (audioSource === "system") {
-        stream = await navigator.mediaDevices.getDisplayMedia({
-          audio: true,
-          video: false,
-        });
-      } else if (audioSource === "both") {
-        stream = await getAudioConstraints("both");
-      } else {
-        stream = await navigator.mediaDevices.getUserMedia({
-          audio: { echoCancellation: true, noiseSuppression: true },
-        });
-      }
-
-      const recorder = new MediaRecorder(stream);
-
-      recorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          setAudioChunks((prev) => [...prev, event.data]);
-        }
-      };
-
-      recorder.onstop = () => {
-        stream.getTracks().forEach((track) => track.stop());
-      };
-
-      setMediaRecorder(recorder);
-      recorder.start(1000);
-      setIsRecording(true);
-    } catch (error) {
-      console.error("Error starting recording:", error);
-      let errorMessage = "Could not start recording. ";
-
-      if (audioSource === "system") {
-        errorMessage +=
-          "System audio capture may not be supported or permission was denied.";
-      } else if (audioSource === "both") {
-        errorMessage += "Mixed audio capture failed. Please check permissions.";
-      } else {
-        errorMessage += "Please check microphone permissions.";
-      }
-
-      alert(errorMessage);
-    }
-  };
-
-  const stopRecording = () => {
-    if (mediaRecorder) {
-      mediaRecorder.stop();
-      setIsRecording(false);
-      processRecording();
-    }
-  };
-
-  const startLiveTranscription = async () => {
-    try {
-      let stream;
-
-      if (audioSource === "system") {
-        stream = await navigator.mediaDevices.getDisplayMedia({
-          audio: true,
-          video: false,
-        });
-      } else if (audioSource === "both") {
-        stream = await getAudioConstraints("both");
-      } else {
-        stream = await navigator.mediaDevices.getUserMedia({
-          audio: { echoCancellation: true, noiseSuppression: true },
-        });
-      }
-
-      const recorder = new MediaRecorder(stream);
-
-      recorder.ondataavailable = async (event) => {
-        if (event.data.size > 0) {
-          setLiveAudioChunks((prev) => [...prev, event.data]);
-
-          // Process audio chunk for live transcription
-          const audioBlob = new Blob([event.data], { type: "audio/wav" });
-          await processLiveAudioChunk(audioBlob);
-        }
-      };
-
-      recorder.onstop = () => {
-        stream.getTracks().forEach((track) => track.stop());
-      };
-
-      setLiveMediaRecorder(recorder);
-      recorder.start(2000); // Record in 2-second chunks for live processing
-      setIsLiveTranscribing(true);
-      setLiveTranscription("");
-    } catch (error) {
-      console.error("Error starting live transcription:", error);
-      alert("Could not start live transcription. Please check permissions.");
-    }
-  };
-
-  const stopLiveTranscription = () => {
-    if (liveMediaRecorder) {
-      liveMediaRecorder.stop();
-      setIsLiveTranscribing(false);
-      setLiveAudioChunks([]);
-    }
-  };
-
-  const processLiveAudioChunk = async (audioBlob) => {
-    try {
-      const reader = new FileReader();
-      reader.onload = async () => {
-        const base64Audio = reader.result;
-
-        const response = await fetch("/api/transcribe", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            audioData: base64Audio,
-            fileName: "live_chunk",
-            includeTimestamps: false,
-            includeSpeakers: false,
-            isLiveChunk: true,
-          }),
-        });
-
-        if (response.ok) {
-          const result = await response.json();
-          if (result.transcription && result.transcription.trim()) {
-            setLiveTranscription((prev) => {
-              const newText = prev + " " + result.transcription.trim();
-              // Keep only last 500 characters to prevent overflow
-              return newText.length > 500
-                ? "..." + newText.slice(-500)
-                : newText;
-            });
-          }
-        }
-      };
-
-      reader.readAsDataURL(audioBlob);
-    } catch (error) {
-      console.error("Live transcription error:", error);
-    }
-  };
-
-  const processRecording = async () => {
-    if (audioChunks.length === 0) return;
-
-    const audioBlob = new Blob(audioChunks, { type: "audio/wav" });
-    setAudioChunks([]);
-
-    await transcribeAudio(
-      audioBlob,
-      `Recording ${new Date().toLocaleString()}`
-    );
-  };
-
-  const transcribeAudio = async (audioBlob, fileName) => {
-    setIsTranscribing(true);
-
-    try {
-      const reader = new FileReader();
-      reader.onload = async () => {
-        const base64Audio = reader.result;
-
-        const response = await fetch("/api/transcribe", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            audioData: base64Audio,
-            fileName: fileName,
-            includeTimestamps: true,
-            includeSpeakers: true,
-          }),
-        });
-
-        if (!response.ok) {
-          throw new Error(`Transcription API error: ${response.status}`);
-        }
-
-        const result = await response.json();
-
-        if (result.error) {
-          throw new Error(result.error);
-        }
-
-        const newTranscription = {
-          id: Date.now(),
-          fileName: result.fileName,
-          content: result.transcription,
-          timestamp: result.timestamp,
-          audioBlob,
-          summary: null,
-          speakers: result.speakers || extractSpeakers(result.transcription),
-          duration: result.duration,
-          language: result.language,
-        };
-
-        setTranscriptions((prev) => [newTranscription, ...prev]);
-        setSelectedTranscription(newTranscription);
-        setIsTranscribing(false);
-      };
-
-      reader.readAsDataURL(audioBlob);
-    } catch (error) {
-      console.error("Transcription error:", error);
-      setIsTranscribing(false);
-      alert(`Error transcribing audio: ${error.message}`);
-    }
-  };
-
-  const extractSpeakers = (text) => {
-    const speakerMatches = text.match(/Speaker \d+/g) || [];
-    return [...new Set(speakerMatches)];
-  };
-
-  const handleFileUpload = async (event) => {
-    const file = event.target.files[0];
-    if (!file) return;
-
-    if (!file.type.startsWith("audio/") && !file.type.startsWith("video/")) {
-      alert("Please select an audio or video file.");
-      return;
-    }
-
-    setSelectedFile(file);
-    await transcribeAudio(file, file.name);
-  };
-
-  const summarizeTranscription = async (transcription) => {
-    setIsSummarizing(true);
-
-    try {
-      const response = await fetch("/integrations/chat-gpt/conversationgpt4", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          messages: [
-            {
-              role: "system",
-              content:
-                "You are an expert at summarizing and organizing transcribed content. Create a comprehensive summary with key points, action items, and important topics discussed.",
-            },
-            {
-              role: "user",
-              content: `Please summarize and organize this transcription:\n\n${transcription.content}`,
-            },
-          ],
-        }),
-      });
-
-      const result = await response.json();
-      const summary = result.choices[0].message.content;
-
-      setTranscriptions((prev) =>
-        prev.map((t) => (t.id === transcription.id ? { ...t, summary } : t))
-      );
-
-      setIsSummarizing(false);
-    } catch (error) {
-      console.error("Summarization error:", error);
-      setIsSummarizing(false);
-      alert("Error generating summary. Please try again.");
-    }
-  };
-
-  const updateSpeakerName = (transcriptionId, oldSpeaker, newName) => {
-    setTranscriptions((prev) =>
-      prev.map((t) => {
-        if (t.id === transcriptionId) {
-          const updatedContent = t.content.replace(
-            new RegExp(oldSpeaker, "g"),
-            newName
-          );
-          return { ...t, content: updatedContent };
-        }
-        return t;
-      })
-    );
-
-    setSpeakerNames((prev) => ({
-      ...prev,
-      [`${transcriptionId}-${oldSpeaker}`]: newName,
-    }));
-
-    setEditingSpeaker(null);
-  };
-
-  const exportTranscription = (transcription, format) => {
-    const content = `${transcription.fileName}\n\nTranscription:\n${
-      transcription.content
-    }\n\n${transcription.summary ? `Summary:\n${transcription.summary}` : ""}`;
-
-    if (format === "txt") {
-      const blob = new Blob([content], { type: "text/plain" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `${transcription.fileName}_transcription.txt`;
-      a.click();
-      URL.revokeObjectURL(url);
-    } else if (format === "json") {
-      const blob = new Blob([JSON.stringify(transcription, null, 2)], {
-        type: "application/json",
-      });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `${transcription.fileName}_transcription.json`;
-      a.click();
-      URL.revokeObjectURL(url);
-    }
-  };
-
-  const filteredTranscriptions = transcriptions.filter(
-    (t) =>
-      t.fileName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      t.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (t.summary && t.summary.toLowerCase().includes(searchQuery.toLowerCase()))
-  );
-
-  const deleteTranscription = (id) => {
-    setTranscriptions((prev) => prev.filter((t) => t.id !== id));
-    if (selectedTranscription && selectedTranscription.id === id) {
-      setSelectedTranscription(null);
-    }
-  };
-
-  const clearLiveTranscription = () => {
-    setLiveTranscription("");
-  };
-
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
-            <div className="flex items-center space-x-3">
-              <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-                <i className="fas fa-microphone text-white text-sm"></i>
-              </div>
-              <h1 className="text-2xl font-bold text-gray-900">TridentAudio</h1>
+    <div>
+      <div
+        dangerouslySetInnerHTML={{
+          __html: `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TridentAudio - HTML Audio Transcription Tool</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        .animate-pulse {
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: .5; }
+        }
+        .animate-spin {
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        .group:hover .group-hover\\:opacity-100 {
+            opacity: 1;
+        }
+        .group:hover .group-hover\\:visible {
+            visibility: visible;
+        }
+    </style>
+</head>
+<body class="min-h-screen bg-gray-50">
+    <!-- Header -->
+    <div class="bg-white shadow-sm border-b">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center py-4">
+                <div class="flex items-center space-x-3">
+                    <div class="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+                        <i class="fas fa-microphone text-white text-sm"></i>
+                    </div>
+                    <h1 class="text-2xl font-bold text-gray-900">TridentAudio HTML</h1>
+                </div>
+                
+                <div class="flex items-center space-x-4">
+                    <div class="flex bg-gray-100 rounded-lg p-1">
+                        <button id="recordTab" class="px-4 py-2 rounded-md text-sm font-medium transition-colors bg-white text-blue-600 shadow-sm">
+                            Record
+                        </button>
+                        <button id="filesTab" class="px-4 py-2 rounded-md text-sm font-medium transition-colors text-gray-600 hover:text-gray-900">
+                            Files (<span id="fileCount">0</span>)
+                        </button>
+                    </div>
+                </div>
             </div>
-
-            <div className="flex items-center space-x-4">
-              <div className="flex bg-gray-100 rounded-lg p-1">
-                <button
-                  onClick={() => setActiveTab("record")}
-                  className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                    activeTab === "record"
-                      ? "bg-white text-blue-600 shadow-sm"
-                      : "text-gray-600 hover:text-gray-900"
-                  }`}
-                >
-                  Record
-                </button>
-                <button
-                  onClick={() => setActiveTab("files")}
-                  className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                    activeTab === "files"
-                      ? "bg-white text-blue-600 shadow-sm"
-                      : "text-gray-600 hover:text-gray-900"
-                  }`}
-                >
-                  Files ({transcriptions.length})
-                </button>
-              </div>
-            </div>
-          </div>
         </div>
-      </div>
+    </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Left Panel - Recording/Upload */}
-          <div className="lg:col-span-1">
-            <div className="bg-white rounded-xl shadow-sm border p-6">
-              {activeTab === "record" ? (
-                <div className="space-y-6">
-                  <div>
-                    <h2 className="text-lg font-semibold text-gray-900 mb-4">
-                      Audio Recording
-                    </h2>
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- Left Panel - Recording/Upload -->
+            <div class="lg:col-span-1">
+                <div class="bg-white rounded-xl shadow-sm border p-6">
+                    <!-- Record Tab Content -->
+                    <div id="recordContent" class="space-y-6">
+                        <div>
+                            <h2 class="text-lg font-semibold text-gray-900 mb-4">Audio Recording</h2>
+                            
+                            <!-- Audio Source Selection -->
+                            <div class="mb-4">
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Audio Source</label>
+                                <select id="audioSource" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                    <option value="microphone">Microphone (Input)</option>
+                                    <option value="system">System Audio (Output)</option>
+                                    <option value="both">Both (Input + Output)</option>
+                                </select>
+                                <p id="audioSourceDesc" class="text-xs text-gray-500 mt-1">Records from your microphone</p>
+                            </div>
 
-                    {/* Audio Source Selection */}
-                    <div className="mb-4">
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Audio Source
-                      </label>
-                      <select
-                        value={audioSource}
-                        onChange={(e) => setAudioSource(e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        disabled={isRecording || isLiveTranscribing}
-                      >
-                        <option value="microphone">Microphone (Input)</option>
-                        <option value="system">System Audio (Output)</option>
-                        <option value="both">Both (Input + Output)</option>
-                      </select>
-                      <p className="text-xs text-gray-500 mt-1">
-                        {audioSource === "microphone" &&
-                          "Records from your microphone"}
-                        {audioSource === "system" &&
-                          "Records system audio (what you hear)"}
-                        {audioSource === "both" &&
-                          "Records both microphone and system audio"}
-                      </p>
-                    </div>
-
-                    {/* Recording Controls */}
-                    <div className="flex flex-col items-center space-y-4">
-                      <div
-                        className={`w-24 h-24 rounded-full flex items-center justify-center transition-all duration-300 ${
-                          isRecording
-                            ? "bg-red-500 animate-pulse"
-                            : "bg-blue-500 hover:bg-blue-600"
-                        }`}
-                      >
-                        <button
-                          onClick={isRecording ? stopRecording : startRecording}
-                          className="text-white text-2xl focus:outline-none"
-                          disabled={isTranscribing || isLiveTranscribing}
-                        >
-                          <i
-                            className={`fas ${
-                              isRecording ? "fa-stop" : "fa-microphone"
-                            }`}
-                          ></i>
-                        </button>
-                      </div>
-
-                      <div className="text-center">
-                        <p className="text-sm font-medium text-gray-900">
-                          {isRecording
-                            ? "Recording..."
-                            : "Click to Start Recording"}
-                        </p>
-                        <p className="text-xs text-gray-500 mt-1">
-                          {audioSource === "microphone" &&
-                            "Using microphone input"}
-                          {audioSource === "system" &&
-                            "Using system audio output"}
-                          {audioSource === "both" &&
-                            "Using both input and output"}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Live Transcription Section */}
-                  <div className="border-t pt-6">
-                    <div className="flex items-center justify-between mb-3">
-                      <h3 className="text-md font-medium text-gray-900">
-                        Live Transcription
-                      </h3>
-                      <button
-                        onClick={
-                          isLiveTranscribing
-                            ? stopLiveTranscription
-                            : startLiveTranscription
-                        }
-                        disabled={isRecording || isTranscribing}
-                        className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
-                          isLiveTranscribing
-                            ? "bg-red-100 text-red-700 hover:bg-red-200"
-                            : "bg-green-100 text-green-700 hover:bg-green-200"
-                        }`}
-                      >
-                        {isLiveTranscribing ? (
-                          <>
-                            <i className="fas fa-stop mr-1"></i>
-                            Stop Live
-                          </>
-                        ) : (
-                          <>
-                            <i className="fas fa-play mr-1"></i>
-                            Start Live
-                          </>
-                        )}
-                      </button>
-                    </div>
-
-                    <div className="bg-gray-50 rounded-lg p-4 min-h-[120px] max-h-[200px] overflow-y-auto">
-                      {isLiveTranscribing && (
-                        <div className="flex items-center space-x-2 mb-2">
-                          <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
-                          <span className="text-xs text-gray-600">
-                            Live transcribing...
-                          </span>
-                          <button
-                            onClick={clearLiveTranscription}
-                            className="ml-auto text-xs text-gray-500 hover:text-gray-700"
-                          >
-                            Clear
-                          </button>
-                        </div>
-                      )}
-
-                      <div className="text-sm text-gray-800">
-                        {liveTranscription || (
-                          <span className="text-gray-500 italic">
-                            {isLiveTranscribing
-                              ? "Listening for speech..."
-                              : 'Click "Start Live" to begin real-time transcription'}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* File Upload */}
-                  <div className="border-t pt-6">
-                    <h3 className="text-md font-medium text-gray-900 mb-3">
-                      Upload Audio/Video
-                    </h3>
-                    <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-blue-400 transition-colors">
-                      <input
-                        type="file"
-                        accept="audio/*,video/*"
-                        onChange={handleFileUpload}
-                        className="hidden"
-                        id="file-upload"
-                        disabled={
-                          isTranscribing || isRecording || isLiveTranscribing
-                        }
-                      />
-                      <label
-                        htmlFor="file-upload"
-                        className="cursor-pointer flex flex-col items-center space-y-2"
-                      >
-                        <i className="fas fa-cloud-upload-alt text-3xl text-gray-400"></i>
-                        <span className="text-sm text-gray-600">
-                          Click to upload audio or video file
-                        </span>
-                        <span className="text-xs text-gray-400">
-                          Supports MP3, WAV, MP4, and more
-                        </span>
-                      </label>
-                    </div>
-                  </div>
-
-                  {/* Status */}
-                  {(isTranscribing || currentTranscription) && (
-                    <div className="border-t pt-6">
-                      <div className="flex items-center space-x-3">
-                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
-                        <span className="text-sm text-gray-600">
-                          {isTranscribing
-                            ? "Transcribing audio..."
-                            : "Processing..."}
-                        </span>
-                      </div>
-                      {currentTranscription && (
-                        <div className="mt-3 p-3 bg-blue-50 rounded-lg">
-                          <p className="text-sm text-gray-700">
-                            {currentTranscription}
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <h2 className="text-lg font-semibold text-gray-900">
-                      File Manager
-                    </h2>
-                    <span className="text-sm text-gray-500">
-                      {transcriptions.length} files
-                    </span>
-                  </div>
-
-                  {/* Search */}
-                  <div className="relative">
-                    <input
-                      type="text"
-                      placeholder="Search transcriptions..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                    <i className="fas fa-search absolute left-3 top-3 text-gray-400"></i>
-                  </div>
-
-                  {/* File List */}
-                  <div className="space-y-2 max-h-96 overflow-y-auto">
-                    {filteredTranscriptions.map((transcription) => (
-                      <div
-                        key={transcription.id}
-                        className={`p-3 rounded-lg border cursor-pointer transition-colors ${
-                          selectedTranscription?.id === transcription.id
-                            ? "border-blue-500 bg-blue-50"
-                            : "border-gray-200 hover:border-gray-300"
-                        }`}
-                        onClick={() => setSelectedTranscription(transcription)}
-                      >
-                        <div className="flex items-center justify-between">
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-gray-900 truncate">
-                              {transcription.fileName}
-                            </p>
-                            <p className="text-xs text-gray-500">
-                              {new Date(
-                                transcription.timestamp
-                              ).toLocaleDateString()}
-                            </p>
-                          </div>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              deleteTranscription(transcription.id);
-                            }}
-                            className="text-gray-400 hover:text-red-500 ml-2"
-                          >
-                            <i className="fas fa-trash text-xs"></i>
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-
-                    {filteredTranscriptions.length === 0 && (
-                      <div className="text-center py-8 text-gray-500">
-                        <i className="fas fa-file-audio text-3xl mb-2"></i>
-                        <p className="text-sm">
-                          {searchQuery
-                            ? "No matching files found"
-                            : "No transcriptions yet"}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Right Panel - Transcription View */}
-          <div className="lg:col-span-2">
-            <div className="bg-white rounded-xl shadow-sm border">
-              {selectedTranscription ? (
-                <div className="p-6">
-                  {/* Header */}
-                  <div className="flex items-center justify-between mb-6">
-                    <div>
-                      <h2 className="text-xl font-semibold text-gray-900">
-                        {selectedTranscription.fileName}
-                      </h2>
-                      <p className="text-sm text-gray-500">
-                        {new Date(
-                          selectedTranscription.timestamp
-                        ).toLocaleString()}
-                      </p>
-                    </div>
-
-                    <div className="flex items-center space-x-2">
-                      {/* Summarize Button */}
-                      <button
-                        onClick={() =>
-                          summarizeTranscription(selectedTranscription)
-                        }
-                        disabled={isSummarizing}
-                        className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 text-sm"
-                      >
-                        {isSummarizing ? (
-                          <>
-                            <i className="fas fa-spinner animate-spin mr-2"></i>
-                            Summarizing...
-                          </>
-                        ) : (
-                          <>
-                            <i className="fas fa-magic mr-2"></i>
-                            {selectedTranscription.summary
-                              ? "Re-summarize"
-                              : "Summarize"}
-                          </>
-                        )}
-                      </button>
-
-                      {/* Export Dropdown */}
-                      <div className="relative group">
-                        <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm">
-                          <i className="fas fa-download mr-2"></i>
-                          Export
-                        </button>
-                        <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-10">
-                          <button
-                            onClick={() =>
-                              exportTranscription(selectedTranscription, "txt")
-                            }
-                            className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-t-lg"
-                          >
-                            <i className="fas fa-file-alt mr-2"></i>
-                            Export as TXT
-                          </button>
-                          <button
-                            onClick={() =>
-                              exportTranscription(selectedTranscription, "json")
-                            }
-                            className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-b-lg"
-                          >
-                            <i className="fas fa-file-code mr-2"></i>
-                            Export as JSON
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Summary */}
-                  {selectedTranscription.summary && (
-                    <div className="mb-6 p-4 bg-green-50 rounded-lg border border-green-200">
-                      <h3 className="text-md font-semibold text-green-900 mb-2">
-                        <i className="fas fa-magic mr-2"></i>
-                        AI Summary
-                      </h3>
-                      <div className="text-sm text-green-800 whitespace-pre-wrap">
-                        {selectedTranscription.summary}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Transcription */}
-                  <div className="space-y-4">
-                    <h3 className="text-md font-semibold text-gray-900">
-                      <i className="fas fa-file-alt mr-2"></i>
-                      Transcription
-                    </h3>
-
-                    <div className="bg-gray-50 rounded-lg p-4 max-h-96 overflow-y-auto">
-                      <div className="text-sm text-gray-800 whitespace-pre-wrap leading-relaxed">
-                        {selectedTranscription.content
-                          .split("\n")
-                          .map((line, index) => {
-                            const speakerMatch = line.match(
-                              /^(\[[\d:]+\]\s*)(Speaker \d+)(:.*)/
-                            );
-                            if (speakerMatch) {
-                              const [, timestamp, speaker, content] =
-                                speakerMatch;
-                              const speakerKey = `${selectedTranscription.id}-${speaker}`;
-                              const customName = speakerNames[speakerKey];
-
-                              return (
-                                <div key={index} className="mb-2">
-                                  <span className="text-gray-500">
-                                    {timestamp}
-                                  </span>
-                                  {editingSpeaker === speakerKey ? (
-                                    <input
-                                      type="text"
-                                      defaultValue={customName || speaker}
-                                      onBlur={(e) =>
-                                        updateSpeakerName(
-                                          selectedTranscription.id,
-                                          speaker,
-                                          e.target.value
-                                        )
-                                      }
-                                      onKeyPress={(e) => {
-                                        if (e.key === "Enter") {
-                                          updateSpeakerName(
-                                            selectedTranscription.id,
-                                            speaker,
-                                            e.target.value
-                                          );
-                                        }
-                                      }}
-                                      className="mx-1 px-2 py-1 border rounded text-blue-600 font-medium"
-                                      autoFocus
-                                    />
-                                  ) : (
-                                    <button
-                                      onClick={() =>
-                                        setEditingSpeaker(speakerKey)
-                                      }
-                                      className="mx-1 text-blue-600 font-medium hover:underline"
-                                    >
-                                      {customName || speaker}
-                                    </button>
-                                  )}
-                                  <span>{content}</span>
+                            <!-- Recording Controls -->
+                            <div class="flex flex-col items-center space-y-4">
+                                <div id="recordButton" class="w-24 h-24 rounded-full flex items-center justify-center transition-all duration-300 bg-blue-500 hover:bg-blue-600 cursor-pointer">
+                                    <i id="recordIcon" class="fas fa-microphone text-white text-2xl"></i>
                                 </div>
-                              );
-                            }
-                            return (
-                              <div key={index} className="mb-1">
-                                {line}
-                              </div>
-                            );
-                          })}
-                      </div>
+                                
+                                <div class="text-center">
+                                    <p id="recordStatus" class="text-sm font-medium text-gray-900">Click to Start Recording</p>
+                                    <p id="recordSourceStatus" class="text-xs text-gray-500 mt-1">Using microphone input</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Live Transcription Section -->
+                        <div class="border-t pt-6">
+                            <div class="flex items-center justify-between mb-3">
+                                <h3 class="text-md font-medium text-gray-900">Live Transcription</h3>
+                                <button id="liveTranscribeBtn" class="px-3 py-1 rounded-lg text-sm font-medium transition-colors bg-green-100 text-green-700 hover:bg-green-200">
+                                    <i class="fas fa-play mr-1"></i>
+                                    Start Live
+                                </button>
+                            </div>
+                            
+                            <div class="bg-gray-50 rounded-lg p-4 min-h-[120px] max-h-[200px] overflow-y-auto">
+                                <div id="liveStatus" class="hidden flex items-center space-x-2 mb-2">
+                                    <div class="w-1 h-2 bg-red-500 rounded-full animate-pulse"></div>
+                                    <span class="text-xs text-gray-600">Live transcribing...</span>
+                                    <button id="clearLiveBtn" class="ml-auto text-xs text-gray-500 hover:text-gray-700">Clear</button>
+                                </div>
+                                
+                                <div id="liveTranscriptionText" class="text-sm text-gray-800">
+                                    <span class="text-gray-500 italic">Click "Start Live" to begin real-time transcription</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- File Upload -->
+                        <div class="border-t pt-6">
+                            <h3 class="text-md font-medium text-gray-900 mb-3">Upload Audio/Video</h3>
+                            <div class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-blue-400 transition-colors">
+                                <input type="file" accept="audio/*,video/*" id="fileUpload" class="hidden">
+                                <label for="fileUpload" class="cursor-pointer flex flex-col items-center space-y-2">
+                                    <i class="fas fa-cloud-upload-alt text-3xl text-gray-400"></i>
+                                    <span class="text-sm text-gray-600">Click to upload audio or video file</span>
+                                    <span class="text-xs text-gray-400">Supports MP3, WAV, MP4, and more</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Status -->
+                        <div id="processingStatus" class="border-t pt-6 hidden">
+                            <div class="flex items-center space-x-3">
+                                <div class="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
+                                <span id="processingText" class="text-sm text-gray-600">Processing...</span>
+                            </div>
+                            <div id="currentTranscription" class="mt-3 p-3 bg-blue-50 rounded-lg hidden">
+                                <p class="text-sm text-gray-700"></p>
+                            </div>
+                        </div>
                     </div>
-                  </div>
+
+                    <!-- Files Tab Content -->
+                    <div id="filesContent" class="space-y-4 hidden">
+                        <div class="flex items-center justify-between">
+                            <h2 class="text-lg font-semibold text-gray-900">File Manager</h2>
+                            <span class="text-sm text-gray-500"><span id="fileCountDisplay">0</span> files</span>
+                        </div>
+                        
+                        <!-- Search -->
+                        <div class="relative">
+                            <input type="text" id="searchInput" placeholder="Search transcriptions..." class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                            <i class="fas fa-search absolute left-3 top-3 text-gray-400"></i>
+                        </div>
+
+                        <!-- File List -->
+                        <div id="fileList" class="space-y-2 max-h-96 overflow-y-auto">
+                            <div id="emptyState" class="text-center py-8 text-gray-500">
+                                <i class="fas fa-file-audio text-3xl mb-2"></i>
+                                <p class="text-sm">No transcriptions yet</p>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-              ) : (
-                <div className="p-12 text-center">
-                  <div className="text-gray-400 mb-4">
-                    <i className="fas fa-file-audio text-6xl"></i>
-                  </div>
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">
-                    No transcription selected
-                  </h3>
-                  <p className="text-gray-500">
-                    {activeTab === "record"
-                      ? "Start recording or upload a file to begin transcription"
-                      : "Select a file from the list to view its transcription"}
-                  </p>
-                </div>
-              )}
             </div>
-          </div>
+
+            <!-- Right Panel - Transcription View -->
+            <div class="lg:col-span-2">
+                <div class="bg-white rounded-xl shadow-sm border">
+                    <div id="transcriptionView" class="p-12 text-center">
+                        <div class="text-gray-400 mb-4">
+                            <i class="fas fa-file-audio text-6xl"></i>
+                        </div>
+                        <h3 class="text-lg font-medium text-gray-900 mb-2">No transcription selected</h3>
+                        <p class="text-gray-500">Start recording or upload a file to begin transcription</p>
+                    </div>
+                    
+                    <div id="transcriptionContent" class="p-6 hidden">
+                        <!-- Header -->
+                        <div class="flex items-center justify-between mb-6">
+                            <div>
+                                <h2 id="transcriptionTitle" class="text-xl font-semibold text-gray-900"></h2>
+                                <p id="transcriptionDate" class="text-sm text-gray-500"></p>
+                            </div>
+                            
+                            <div class="flex items-center space-x-2">
+                                <!-- Summarize Button -->
+                                <button id="summarizeBtn" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 text-sm">
+                                    <i class="fas fa-magic mr-2"></i>
+                                    Summarize
+                                </button>
+                                
+                                <!-- Export Dropdown -->
+                                <div class="relative group">
+                                    <button class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm">
+                                        <i class="fas fa-download mr-2"></i>
+                                        Export
+                                    </button>
+                                    <div class="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-10">
+                                        <button id="exportTxt" class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-t-lg">
+                                            <i class="fas fa-file-alt mr-2"></i>
+                                            Export as TXT
+                                        </button>
+                                        <button id="exportJson" class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-b-lg">
+                                            <i class="fas fa-file-code mr-2"></i>
+                                            Export as JSON
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Summary -->
+                        <div id="summarySection" class="mb-6 p-4 bg-green-50 rounded-lg border border-green-200 hidden">
+                            <h3 class="text-md font-semibold text-green-900 mb-2">
+                                <i class="fas fa-magic mr-2"></i>
+                                AI Summary
+                            </h3>
+                            <div id="summaryText" class="text-sm text-green-800 whitespace-pre-wrap"></div>
+                        </div>
+
+                        <!-- Transcription -->
+                        <div class="space-y-4">
+                            <h3 class="text-md font-semibold text-gray-900">
+                                <i class="fas fa-file-alt mr-2"></i>
+                                Transcription
+                            </h3>
+                            
+                            <div class="bg-gray-50 rounded-lg p-4 max-h-96 overflow-y-auto">
+                                <div id="transcriptionText" class="text-sm text-gray-800 whitespace-pre-wrap leading-relaxed"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
-      </div>
+    </div>
+
+    <script>
+        // Global state
+        let isRecording = false;
+        let mediaRecorder = null;
+        let audioChunks = [];
+        let transcriptions = [];
+        let isTranscribing = false;
+        let selectedTranscription = null;
+        let isSummarizing = false;
+        let audioSource = 'microphone';
+        let speakerNames = {};
+        let editingSpeaker = null;
+        let activeTab = 'record';
+        let isLiveTranscribing = false;
+        let liveTranscription = '';
+        let liveMediaRecorder = null;
+        let liveAudioChunks = [];
+
+        // DOM elements
+        const recordTab = document.getElementById('recordTab');
+        const filesTab = document.getElementById('filesTab');
+        const recordContent = document.getElementById('recordContent');
+        const filesContent = document.getElementById('filesContent');
+        const audioSourceSelect = document.getElementById('audioSource');
+        const audioSourceDesc = document.getElementById('audioSourceDesc');
+        const recordButton = document.getElementById('recordButton');
+        const recordIcon = document.getElementById('recordIcon');
+        const recordStatus = document.getElementById('recordStatus');
+        const recordSourceStatus = document.getElementById('recordSourceStatus');
+        const liveTranscribeBtn = document.getElementById('liveTranscribeBtn');
+        const liveStatus = document.getElementById('liveStatus');
+        const liveTranscriptionText = document.getElementById('liveTranscriptionText');
+        const clearLiveBtn = document.getElementById('clearLiveBtn');
+        const fileUpload = document.getElementById('fileUpload');
+        const processingStatus = document.getElementById('processingStatus');
+        const processingText = document.getElementById('processingText');
+        const currentTranscription = document.getElementById('currentTranscription');
+        const fileCount = document.getElementById('fileCount');
+        const fileCountDisplay = document.getElementById('fileCountDisplay');
+        const searchInput = document.getElementById('searchInput');
+        const fileList = document.getElementById('fileList');
+        const emptyState = document.getElementById('emptyState');
+        const transcriptionView = document.getElementById('transcriptionView');
+        const transcriptionContent = document.getElementById('transcriptionContent');
+        const transcriptionTitle = document.getElementById('transcriptionTitle');
+        const transcriptionDate = document.getElementById('transcriptionDate');
+        const summarizeBtn = document.getElementById('summarizeBtn');
+        const exportTxt = document.getElementById('exportTxt');
+        const exportJson = document.getElementById('exportJson');
+        const summarySection = document.getElementById('summarySection');
+        const summaryText = document.getElementById('summaryText');
+        const transcriptionText = document.getElementById('transcriptionText');
+
+        // Event listeners
+        recordTab.addEventListener('click', () => setActiveTab('record'));
+        filesTab.addEventListener('click', () => setActiveTab('files'));
+        audioSourceSelect.addEventListener('change', updateAudioSource);
+        recordButton.addEventListener('click', toggleRecording);
+        liveTranscribeBtn.addEventListener('click', toggleLiveTranscription);
+        clearLiveBtn.addEventListener('click', clearLiveTranscription);
+        fileUpload.addEventListener('change', handleFileUpload);
+        searchInput.addEventListener('input', filterTranscriptions);
+        summarizeBtn.addEventListener('click', summarizeCurrentTranscription);
+        exportTxt.addEventListener('click', () => exportTranscription('txt'));
+        exportJson.addEventListener('click', () => exportTranscription('json'));
+
+        // Functions
+        function setActiveTab(tab) {
+            activeTab = tab;
+            if (tab === 'record') {
+                recordTab.className = 'px-4 py-2 rounded-md text-sm font-medium transition-colors bg-white text-blue-600 shadow-sm';
+                filesTab.className = 'px-4 py-2 rounded-md text-sm font-medium transition-colors text-gray-600 hover:text-gray-900';
+                recordContent.classList.remove('hidden');
+                filesContent.classList.add('hidden');
+            } else {
+                recordTab.className = 'px-4 py-2 rounded-md text-sm font-medium transition-colors text-gray-600 hover:text-gray-900';
+                filesTab.className = 'px-4 py-2 rounded-md text-sm font-medium transition-colors bg-white text-blue-600 shadow-sm';
+                recordContent.classList.add('hidden');
+                filesContent.classList.remove('hidden');
+            }
+        }
+
+        function updateAudioSource() {
+            audioSource = audioSourceSelect.value;
+            const descriptions = {
+                'microphone': 'Records from your microphone',
+                'system': 'Records system audio (what you hear)',
+                'both': 'Records both microphone and system audio'
+            };
+            const statusTexts = {
+                'microphone': 'Using microphone input',
+                'system': 'Using system audio output',
+                'both': 'Using both input and output'
+            };
+            audioSourceDesc.textContent = descriptions[audioSource];
+            recordSourceStatus.textContent = statusTexts[audioSource];
+        }
+
+        async function getAudioConstraints(source) {
+            try {
+                switch (source) {
+                    case 'microphone':
+                        return { audio: { echoCancellation: true, noiseSuppression: true } };
+                    
+                    case 'system':
+                        if (navigator.mediaDevices.getDisplayMedia) {
+                            return { audio: true, video: false };
+                        } else {
+                            throw new Error('System audio capture not supported in this browser');
+                        }
+                    
+                    case 'both':
+                        const micStream = await navigator.mediaDevices.getUserMedia({
+                            audio: { echoCancellation: true, noiseSuppression: true }
+                        });
+                        
+                        let systemStream;
+                        try {
+                            systemStream = await navigator.mediaDevices.getDisplayMedia({
+                                audio: true,
+                                video: false
+                            });
+                        } catch (error) {
+                            console.warn('Could not capture system audio, using microphone only');
+                            return micStream;
+                        }
+                        
+                        const audioContext = new AudioContext();
+                        const micSource = audioContext.createMediaStreamSource(micStream);
+                        const systemSource = audioContext.createMediaStreamSource(systemStream);
+                        const destination = audioContext.createMediaStreamDestination();
+                        
+                        micSource.connect(destination);
+                        systemSource.connect(destination);
+                        
+                        return destination.stream;
+                    
+                    default:
+                        return { audio: { echoCancellation: true, noiseSuppression: true } };
+                }
+            } catch (error) {
+                console.error('Error getting audio constraints:', error);
+                throw error;
+            }
+        }
+
+        async function toggleRecording() {
+            if (isRecording) {
+                stopRecording();
+            } else {
+                await startRecording();
+            }
+        }
+
+        async function startRecording() {
+            try {
+                let stream;
+                
+                if (audioSource === 'system') {
+                    stream = await navigator.mediaDevices.getDisplayMedia({
+                        audio: true,
+                        video: false
+                    });
+                } else if (audioSource === 'both') {
+                    stream = await getAudioConstraints('both');
+                } else {
+                    stream = await navigator.mediaDevices.getUserMedia({
+                        audio: { echoCancellation: true, noiseSuppression: true }
+                    });
+                }
+                
+                const recorder = new MediaRecorder(stream);
+                
+                recorder.ondataavailable = (event) => {
+                    if (event.data.size > 0) {
+                        audioChunks.push(event.data);
+                    }
+                };
+
+                recorder.onstop = () => {
+                    stream.getTracks().forEach(track => track.stop());
+                };
+
+                mediaRecorder = recorder;
+                recorder.start(1000);
+                isRecording = true;
+                
+                recordButton.className = 'w-24 h-24 rounded-full flex items-center justify-center transition-all duration-300 bg-red-500 animate-pulse cursor-pointer';
+                recordIcon.className = 'fas fa-stop text-white text-2xl';
+                recordStatus.textContent = 'Recording...';
+                audioSourceSelect.disabled = true;
+                liveTranscribeBtn.disabled = true;
+            } catch (error) {
+                console.error('Error starting recording:', error);
+                let errorMessage = 'Could not start recording. ';
+                
+                if (audioSource === 'system') {
+                    errorMessage += 'System audio capture may not be supported or permission was denied.';
+                } else if (audioSource === 'both') {
+                    errorMessage += 'Mixed audio capture failed. Please check permissions.';
+                } else {
+                    errorMessage += 'Please check microphone permissions.';
+                }
+                
+                alert(errorMessage);
+            }
+        }
+
+        function stopRecording() {
+            if (mediaRecorder) {
+                mediaRecorder.stop();
+                isRecording = false;
+                
+                recordButton.className = 'w-24 h-24 rounded-full flex items-center justify-center transition-all duration-300 bg-blue-500 hover:bg-blue-600 cursor-pointer';
+                recordIcon.className = 'fas fa-microphone text-white text-2xl';
+                recordStatus.textContent = 'Click to Start Recording';
+                audioSourceSelect.disabled = false;
+                liveTranscribeBtn.disabled = false;
+                
+                processRecording();
+            }
+        }
+
+        async function toggleLiveTranscription() {
+            if (isLiveTranscribing) {
+                stopLiveTranscription();
+            } else {
+                await startLiveTranscription();
+            }
+        }
+
+        async function startLiveTranscription() {
+            try {
+                let stream;
+                
+                if (audioSource === 'system') {
+                    stream = await navigator.mediaDevices.getDisplayMedia({
+                        audio: true,
+                        video: false
+                    });
+                } else if (audioSource === 'both') {
+                    stream = await getAudioConstraints('both');
+                } else {
+                    stream = await navigator.mediaDevices.getUserMedia({
+                        audio: { echoCancellation: true, noiseSuppression: true }
+                    });
+                }
+                
+                const recorder = new MediaRecorder(stream);
+                
+                recorder.ondataavailable = async (event) => {
+                    if (event.data.size > 0) {
+                        liveAudioChunks.push(event.data);
+                        
+                        const audioBlob = new Blob([event.data], { type: 'audio/wav' });
+                        await processLiveAudioChunk(audioBlob);
+                    }
+                };
+
+                recorder.onstop = () => {
+                    stream.getTracks().forEach(track => track.stop());
+                };
+
+                liveMediaRecorder = recorder;
+                recorder.start(2000);
+                isLiveTranscribing = true;
+                liveTranscription = '';
+                
+                liveTranscribeBtn.innerHTML = '<i class="fas fa-stop mr-1"></i>Stop Live';
+                liveTranscribeBtn.className = 'px-3 py-1 rounded-lg text-sm font-medium transition-colors bg-red-100 text-red-700 hover:bg-red-200';
+                liveStatus.classList.remove('hidden');
+                liveTranscriptionText.innerHTML = '<span class="text-gray-500 italic">Listening for speech...</span>';
+                recordButton.style.pointerEvents = 'none';
+                recordButton.style.opacity = '0.5';
+                audioSourceSelect.disabled = true;
+            } catch (error) {
+                console.error('Error starting live transcription:', error);
+                alert('Could not start live transcription. Please check permissions.');
+            }
+        }
+
+        function stopLiveTranscription() {
+            if (liveMediaRecorder) {
+                liveMediaRecorder.stop();
+                isLiveTranscribing = false;
+                liveAudioChunks = [];
+                
+                liveTranscribeBtn.innerHTML = '<i class="fas fa-play mr-1"></i>Start Live';
+                liveTranscribeBtn.className = 'px-3 py-1 rounded-lg text-sm font-medium transition-colors bg-green-100 text-green-700 hover:bg-green-200';
+                liveStatus.classList.add('hidden');
+                liveTranscriptionText.innerHTML = '<span class="text-gray-500 italic">Click "Start Live" to begin real-time transcription</span>';
+                recordButton.style.pointerEvents = 'auto';
+                recordButton.style.opacity = '1';
+                audioSourceSelect.disabled = false;
+            }
+        }
+
+        async function processLiveAudioChunk(audioBlob) {
+            try {
+                const reader = new FileReader();
+                reader.onload = async () => {
+                    const base64Audio = reader.result;
+                    
+                    const response = await fetch('/api/transcribe', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            audioData: base64Audio,
+                            fileName: 'live_chunk',
+                            includeTimestamps: false,
+                            includeSpeakers: false,
+                            isLiveChunk: true
+                        })
+                    });
+
+                    if (response.ok) {
+                        const result = await response.json();
+                        if (result.transcription && result.transcription.trim()) {
+                            liveTranscription += ' ' + result.transcription.trim();
+                            if (liveTranscription.length > 500) {
+                                liveTranscription = '...' + liveTranscription.slice(-500);
+                            }
+                            liveTranscriptionText.textContent = liveTranscription;
+                        }
+                    }
+                };
+                
+                reader.readAsDataURL(audioBlob);
+            } catch (error) {
+                console.error('Live transcription error:', error);
+            }
+        }
+
+        function clearLiveTranscription() {
+            liveTranscription = '';
+            liveTranscriptionText.innerHTML = '<span class="text-gray-500 italic">Listening for speech...</span>';
+        }
+
+        async function processRecording() {
+            if (audioChunks.length === 0) return;
+
+            const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+            audioChunks = [];
+            
+            await transcribeAudio(audioBlob, \`Recording \${new Date().toLocaleString()}\`);
+        }
+
+        async function transcribeAudio(audioBlob, fileName) {
+            isTranscribing = true;
+            processingStatus.classList.remove('hidden');
+            processingText.textContent = 'Transcribing audio...';
+            
+            try {
+                const reader = new FileReader();
+                reader.onload = async () => {
+                    const base64Audio = reader.result;
+                    
+                    const response = await fetch('/api/transcribe', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            audioData: base64Audio,
+                            fileName: fileName,
+                            includeTimestamps: true,
+                            includeSpeakers: true
+                        })
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(\`Transcription API error: \${response.status}\`);
+                    }
+
+                    const result = await response.json();
+                    
+                    if (result.error) {
+                        throw new Error(result.error);
+                    }
+                    
+                    const newTranscription = {
+                        id: Date.now(),
+                        fileName: result.fileName,
+                        content: result.transcription,
+                        timestamp: result.timestamp,
+                        audioBlob,
+                        summary: null,
+                        speakers: result.speakers || extractSpeakers(result.transcription),
+                        duration: result.duration,
+                        language: result.language
+                    };
+
+                    transcriptions.unshift(newTranscription);
+                    selectedTranscription = newTranscription;
+                    updateFileCount();
+                    renderFileList();
+                    showTranscription(newTranscription);
+                    isTranscribing = false;
+                    processingStatus.classList.add('hidden');
+                };
+                
+                reader.readAsDataURL(audioBlob);
+            } catch (error) {
+                console.error('Transcription error:', error);
+                isTranscribing = false;
+                processingStatus.classList.add('hidden');
+                alert(\`Error transcribing audio: \${error.message}\`);
+            }
+        }
+
+        function extractSpeakers(text) {
+            const speakerMatches = text.match(/Speaker \\d+/g) || [];
+            return [...new Set(speakerMatches)];
+        }
+
+        async function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            if (!file.type.startsWith('audio/') && !file.type.startsWith('video/')) {
+                alert('Please select an audio or video file.');
+                return;
+            }
+
+            await transcribeAudio(file, file.name);
+        }
+
+        function updateFileCount() {
+            fileCount.textContent = transcriptions.length;
+            fileCountDisplay.textContent = transcriptions.length;
+        }
+
+        function renderFileList() {
+            const searchQuery = searchInput.value.toLowerCase();
+            const filtered = transcriptions.filter(t =>
+                t.fileName.toLowerCase().includes(searchQuery) ||
+                t.content.toLowerCase().includes(searchQuery) ||
+                (t.summary && t.summary.toLowerCase().includes(searchQuery))
+            );
+
+            if (filtered.length === 0) {
+                fileList.innerHTML = '<div id="emptyState" class="text-center py-8 text-gray-500"><i class="fas fa-file-audio text-3xl mb-2"></i><p class="text-sm">' + (searchQuery ? 'No matching files found' : 'No transcriptions yet') + '</p></div>';
+                return;
+            }
+
+            fileList.innerHTML = filtered.map(transcription => \`
+                <div class="p-3 rounded-lg border cursor-pointer transition-colors \${selectedTranscription?.id === transcription.id ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'}" onclick="selectTranscription(\${transcription.id})">
+                    <div class="flex items-center justify-between">
+                        <div class="flex-1 min-w-0">
+                            <p class="text-sm font-medium text-gray-900 truncate">\${transcription.fileName}</p>
+                            <p class="text-xs text-gray-500">\${new Date(transcription.timestamp).toLocaleDateString()}</p>
+                        </div>
+                        <button onclick="event.stopPropagation(); deleteTranscription(\${transcription.id})" class="text-gray-400 hover:text-red-500 ml-2">
+                            <i class="fas fa-trash text-xs"></i>
+                        </button>
+                    </div>
+                </div>
+            \`).join('');
+        }
+
+        function filterTranscriptions() {
+            renderFileList();
+        }
+
+        function selectTranscription(id) {
+            selectedTranscription = transcriptions.find(t => t.id === id);
+            showTranscription(selectedTranscription);
+            renderFileList();
+        }
+
+        function showTranscription(transcription) {
+            transcriptionView.classList.add('hidden');
+            transcriptionContent.classList.remove('hidden');
+            
+            transcriptionTitle.textContent = transcription.fileName;
+            transcriptionDate.textContent = new Date(transcription.timestamp).toLocaleString();
+            
+            if (transcription.summary) {
+                summarySection.classList.remove('hidden');
+                summaryText.textContent = transcription.summary;
+                summarizeBtn.innerHTML = '<i class="fas fa-magic mr-2"></i>Re-summarize';
+            } else {
+                summarySection.classList.add('hidden');
+                summarizeBtn.innerHTML = '<i class="fas fa-magic mr-2"></i>Summarize';
+            }
+            
+            transcriptionText.innerHTML = transcription.content.split('\\n').map((line, index) => {
+                const speakerMatch = line.match(/^(\\[[\\d:]+\\]\\s*)(Speaker \\d+)(:.*)/);
+                if (speakerMatch) {
+                    const [, timestamp, speaker, content] = speakerMatch;
+                    const speakerKey = \`\${transcription.id}-\${speaker}\`;
+                    const customName = speakerNames[speakerKey];
+                    
+                    return \`
+                        <div class="mb-2">
+                            <span class="text-gray-500">\${timestamp}</span>
+                            <button onclick="editSpeaker('\${speakerKey}', '\${speaker}')" class="mx-1 text-blue-600 font-medium hover:underline">
+                                \${customName || speaker}
+                            </button>
+                            <span>\${content}</span>
+                        </div>
+                    \`;
+                }
+                return \`<div class="mb-1">\${line}</div>\`;
+            }).join('');
+        }
+
+        function editSpeaker(speakerKey, originalSpeaker) {
+            // Simple prompt for speaker name editing
+            const newName = prompt('Enter new speaker name:', speakerNames[speakerKey] || originalSpeaker);
+            if (newName && newName !== originalSpeaker) {
+                speakerNames[speakerKey] = newName;
+                
+                // Update transcription content
+                selectedTranscription.content = selectedTranscription.content.replace(
+                    new RegExp(originalSpeaker, 'g'),
+                    newName
+                );
+                
+                showTranscription(selectedTranscription);
+            }
+        }
+
+        function deleteTranscription(id) {
+            if (confirm('Are you sure you want to delete this transcription?')) {
+                transcriptions = transcriptions.filter(t => t.id !== id);
+                if (selectedTranscription && selectedTranscription.id === id) {
+                    selectedTranscription = null;
+                    transcriptionView.classList.remove('hidden');
+                    transcriptionContent.classList.add('hidden');
+                }
+                updateFileCount();
+                renderFileList();
+            }
+        }
+
+        async function summarizeCurrentTranscription() {
+            if (!selectedTranscription) return;
+            
+            isSummarizing = true;
+            summarizeBtn.innerHTML = '<i class="fas fa-spinner animate-spin mr-2"></i>Summarizing...';
+            summarizeBtn.disabled = true;
+            
+            try {
+                const response = await fetch('/integrations/chat-gpt/conversationgpt4', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        messages: [
+                            {
+                                role: 'system',
+                                content: 'You are an expert at summarizing and organizing transcribed content. Create a comprehensive summary with key points, action items, and important topics discussed.'
+                            },
+                            {
+                                role: 'user',
+                                content: \`Please summarize and organize this transcription:\\n\\n\${selectedTranscription.content}\`
+                            }
+                        ]
+                    })
+                });
+
+                const result = await response.json();
+                const summary = result.choices[0].message.content;
+                
+                selectedTranscription.summary = summary;
+                showTranscription(selectedTranscription);
+                
+                isSummarizing = false;
+                summarizeBtn.disabled = false;
+            } catch (error) {
+                console.error('Summarization error:', error);
+                isSummarizing = false;
+                summarizeBtn.innerHTML = '<i class="fas fa-magic mr-2"></i>Summarize';
+                summarizeBtn.disabled = false;
+                alert('Error generating summary. Please try again.');
+            }
+        }
+
+        function exportTranscription(format) {
+            if (!selectedTranscription) return;
+            
+            const content = \`\${selectedTranscription.fileName}\\n\\nTranscription:\\n\${selectedTranscription.content}\\n\\n\${selectedTranscription.summary ? \`Summary:\\n\${selectedTranscription.summary}\` : ''}\`;
+            
+            if (format === 'txt') {
+                const blob = new Blob([content], { type: 'text/plain' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = \`\${selectedTranscription.fileName}_transcription.txt\`;
+                a.click();
+                URL.revokeObjectURL(url);
+            } else if (format === 'json') {
+                const blob = new Blob([JSON.stringify(selectedTranscription, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = \`\${selectedTranscription.fileName}_transcription.json\`;
+                a.click();
+                URL.revokeObjectURL(url);
+            }
+        }
+
+        // Initialize
+        updateAudioSource();
+        updateFileCount();
+    </script>
+</body>
+</html>
+        `,
+        }}
+      />
     </div>
   );
 }
